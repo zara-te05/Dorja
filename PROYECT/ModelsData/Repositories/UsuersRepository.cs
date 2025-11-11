@@ -81,7 +81,7 @@ namespace DorjaModelado.Repositories
             var db = dbConnection();
             var sql = @"DELETE FROM users WHERE id = @id";
 
-            var result = await db.ExecuteAsync(sql, new { id = usuario.IdUsario });
+            var result = await db.ExecuteAsync(sql, new { id = usuario.Id });
             return result > 0;
         }
     }

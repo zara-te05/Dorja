@@ -66,7 +66,7 @@ namespace BACK.Controllers
         [HttpDelete]
         public async Task<IActionResult> DeleteUsers(int id) 
         { 
-            await _usersRepository.DeleteUsuarios(new Users { IdUsario = id});
+            await _usersRepository.DeleteUsuarios(new Users { Id = id});
 
             return NoContent();
         }

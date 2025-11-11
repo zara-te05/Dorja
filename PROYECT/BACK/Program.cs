@@ -1,4 +1,5 @@
 ﻿using DorjaData;
+using DorjaData.Repositories;
 using DorjaModelado.Repositories;
 
 var builder = WebApplication.CreateBuilder(args);
@@ -20,7 +21,7 @@ builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen();
 
 
-// ✅ REGISTRAR CONFIGURACIÓN MYSQL
+// REGISTRAR CONFIGURACIÓN MYSQL
 builder.Services.AddSingleton(new MySQLConfiguration(
     builder.Configuration.GetConnectionString("DorjaConnection")
 ));
@@ -28,6 +29,8 @@ builder.Services.AddSingleton(new MySQLConfiguration(
 
 // REGISTRAR REPOSITORIO
 builder.Services.AddScoped<IUserRepository, UsersRepository>();
+builder.Services.AddScoped<INivelesRepository, NivelesRepository>();
+builder.Services.AddScoped<ITemasRepository, TemasRepository>();
 
 var app = builder.Build();
 
