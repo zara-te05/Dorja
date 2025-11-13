@@ -31,6 +31,11 @@ builder.Services.AddSingleton(new MySQLConfiguration(
 builder.Services.AddScoped<IUserRepository, UsersRepository>();
 builder.Services.AddScoped<INivelesRepository, NivelesRepository>();
 builder.Services.AddScoped<ITemasRepository, TemasRepository>();
+builder.Services.AddScoped<IProblemaRepository, ProblemaRepository>();
+builder.Services.AddScoped<IProgreso_ProblemaRepository, Progreso_ProblemaRepository>();
+builder.Services.AddScoped<ILogrosRepository, LogrosRepository>();
+builder.Services.AddScoped<ILogros_UsuarioRepository, Logros_UsuarioRepository>();
+builder.Services.AddScoped<ICertificadosRepository, CertificadoRepository>();
 
 var app = builder.Build();
 
