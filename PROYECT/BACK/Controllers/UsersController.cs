@@ -1,7 +1,9 @@
-﻿using Microsoft.AspNetCore.Mvc;
+﻿using Microsoft.AspNetCore.Http;
+using Microsoft.AspNetCore.Mvc;
 using DorjaModelado.Repositories;
 using DorjaModelado;
-using System.Threading.Tasks;
+using System.Text;
+
 
 namespace BACK.Controllers
 {
@@ -9,75 +11,157 @@ namespace BACK.Controllers
     [ApiController]
     public class UsersController : ControllerBase
     {
-        private readonly IUserRepository _userRepository;
+        private readonly IUserRepository _usersRepository;
 
-        public UsersController(IUserRepository userRepository)
+        public UsersController(IUserRepository usersRepository)
         {
-            _userRepository = userRepository;
+            _usersRepository = usersRepository;
         }
 
-        // GET api/users
         [HttpGet]
         public async Task<IActionResult> GetAllUsers()
         {
-            var users = await _userRepository.GetAllUsers();
-            return Ok(users);
+            return Ok(await _usersRepository.GetAllUsers());
         }
 
-        // GET api/users/5
-        [HttpGet("{id:int}")]
+        [HttpGet("{id}")]
         public async Task<IActionResult> GetDetails(int id)
         {
-            var user = await _userRepository.GetDetails(id);
-            if (user == null)
-                return NotFound(new { message = "Usuario no encontrado." });
-
-            return Ok(user);
+            return Ok(await _usersRepository.GetDetails(id));
         }
 
-        // POST api/users
         [HttpPost]
-        public async Task<IActionResult> CreateUser([FromBody] Users usuario)
+        public async Task<IActionResult> CreateUsuers([FromBody] Users usuario)
         {
             if (usuario == null)
-                return BadRequest(new { message = "Datos inválidos." });
+            {
+                return BadRequest();
+            }
 
             if (!ModelState.IsValid)
+            {
                 return BadRequest(ModelState);
+            }
 
-            var created = await _userRepository.InsertUsers(usuario);
+            var created = await _usersRepository.InsertUsers(usuario);
 
-            return CreatedAtAction(nameof(GetDetails), new { id = created.Id }, created);
+            return Created("created", created);
         }
 
-        // PUT api/users/5
-        [HttpPut("{id:int}")]
-        public async Task<IActionResult> UpdateUser(int id, [FromBody] Users usuario)
+
+        [HttpPut]
+        public async Task<IActionResult> UpdateUsers([FromBody] Users usuario)
         {
-            if (usuario == null || usuario.Id != id)
-                return BadRequest(new { message = "Los datos del usuario no coinciden." });
-
+            if (usuario == null)
+            {
+                return BadRequest();
+            }
             if (!ModelState.IsValid)
+            {
                 return BadRequest(ModelState);
-
-            var existing = await _userRepository.GetDetails(id);
-            if (existing == null)
-                return NotFound(new { message = "Usuario no encontrado." });
-
-            var updated = await _userRepository.UpdateUsuarios(usuario);
+            }
+            var updated = await _usersRepository.UpdateUsuarios(usuario);
             return Ok(updated);
         }
 
-        // DELETE api/users/5
-        [HttpDelete("{id:int}")]
-        public async Task<IActionResult> DeleteUser(int id)
+        [HttpDelete]
+        public async Task<IActionResult> DeleteUsers(int id)
         {
-            var existing = await _userRepository.GetDetails(id);
-            if (existing == null)
-                return NotFound(new { message = "Usuario no encontrado." });
+            await _usersRepository.DeleteUsuarios(new Users { Id = id });
 
-            await _userRepository.DeleteUsuarios(existing);
             return NoContent();
+        }
+
+        // --------------------------  SIGNUP  ----------------------------
+
+        [HttpPost("signup")]
+
+        public async Task<IActionResult> Signup([FromBody] Users users)
+        {
+            if (users == null)
+            {
+                return BadRequest(new { message = "Datos invalidos" });
+            }
+
+            if (string.IsNullOrWhiteSpace(users.Email) ||
+               string.IsNullOrWhiteSpace(users.Password) ||
+               string.IsNullOrWhiteSpace(users.Username))
+            {
+                return BadRequest(new { message = "Email, Username y Password son obligatorios" });
+            }
+
+            var existing = await _usersRepository.GetByEmail(users.Email);
+
+            if (existing != null)
+            {
+                return Conflict(new { message = "El email ya está registrado" });
+            }
+
+            users.Password = HashPassword(users.Password);
+            var created = await _usersRepository.InsertUsers(users);
+
+            if (!created)
+            {
+                return StatusCode(500, new { message = "Error al registrar el usuario" });
+            }
+
+            return Ok(new { message = "Usuario registrado correctamente" });
+        }
+
+        // --------------------------  LOGIN  ----------------------------
+
+        [HttpPost("login")]
+        public async Task<IActionResult> Login([FromBody] Users users)
+        {
+            if (users == null)
+            {
+                return BadRequest(new { message = "Datos inválidos" });
+            }
+
+            if (string.IsNullOrWhiteSpace(users.Email) || string.IsNullOrWhiteSpace(users.Password))
+            {
+                return BadRequest(new { message = "Email y Password son obligatorios" });
+            }
+
+            // Buscar usuario por email
+            var existing = await _usersRepository.GetByEmail(users.Email);
+
+            if (existing == null)
+            {
+                return Unauthorized(new { message = "Email o contraseña incorrectos" });
+            }
+
+            // Hashear la contraseña ingresada para compararla con la almacenada
+            var hashedInputPassword = HashPassword(users.Password);
+
+            if (existing.Password != hashedInputPassword)
+            {
+                return Unauthorized(new { message = "Email o contraseña incorrectos" });
+            }
+
+            // Aquí podrías generar un token JWT (si quieres seguridad avanzada)
+            return Ok(new
+            {
+                message = "Inicio de sesión exitoso",
+                user = new
+                {
+                    existing.Id,
+                    existing.Username,
+                    existing.Email,
+                    existing.Nombre,
+                    existing.ApellidoPaterno,
+                    existing.ApellidoMaterno
+                }
+            });
+        }
+
+        // --------------------------  HASH  ----------------------------
+        private string HashPassword(string password)
+        {
+            using var sha256 = System.Security.Cryptography.SHA256.Create();
+            var bytes = Encoding.UTF8.GetBytes(password);
+            var hash = sha256.ComputeHash(bytes);
+            return Convert.ToBase64String(hash);
         }
     }
 }
