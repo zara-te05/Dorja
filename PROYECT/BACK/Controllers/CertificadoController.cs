@@ -1,13 +1,9 @@
 ﻿using DorjaData.Repositories;
 using DorjaModelado;
-using Microsoft.AspNetCore.Components;
 using Microsoft.AspNetCore.Mvc;
-using RouteAttribute = Microsoft.AspNetCore.Components.RouteAttribute;
 
 namespace BACK.Controllers
 {
-    //Sospecho que no usaremos CASI nada de lo que esta aqui pero por si se ocupa igual lo dejo. atte: Zarate
-
     [Route("api/[controller]")]
     [ApiController]
     public class CertificadoController : ControllerBase
@@ -35,13 +31,11 @@ namespace BACK.Controllers
         public async Task<IActionResult> CreateNiveles([FromBody] Certificados certificados)
         {
             if (certificados == null)
-            {
                 return BadRequest();
-            }
+
             if (!ModelState.IsValid)
-            {
                 return BadRequest(ModelState);
-            }
+
             var created = await _certificadosRepository.InsertCertificados(certificados);
             return Created("created", created);
         }
@@ -50,13 +44,11 @@ namespace BACK.Controllers
         public async Task<IActionResult> UpdateNiveles([FromBody] Certificados certificados)
         {
             if (certificados == null)
-            {
                 return BadRequest();
-            }
+
             if (!ModelState.IsValid)
-            {
                 return BadRequest(ModelState);
-            }
+
             await _certificadosRepository.UpdateCertificados(certificados);
             return NoContent();
         }

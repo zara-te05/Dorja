@@ -1,6 +1,6 @@
 ﻿// @ts-ignore
 window.api = {
-     baseUrl: 'https://localhost:7107/api/users',
+     baseUrl: 'https://localhost:5222/api/Users',
 
     signup: async (data) => {
         try {
