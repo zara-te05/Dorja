@@ -40,6 +40,8 @@
                     <p class="text-center text-gray-500 dark:text-slate-400 mb-8">Ingresa tus credenciales para continuar.</p>
 
                     <div id="error-container" class="hidden items-center gap-3 p-3 mb-6 rounded-lg bg-red-50 dark:bg-red-500/10 border border-red-200 dark:border-red-500/30">
+                        <svg class="w-5 h-5 text-red-600 dark:text-red-400" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.28 7.22a.75.75 0 00-1.06 1.06L8.94 10l-1.72 1.72a.75.75 0 101.06 1.06L10 11.06l1.72 1.72a.75.75 0 101.06-1.06L11.06 10l1.72-1.72a.75.75 0 00-1.06-1.06L10 8.94 8.28 7.22z" clip-rule="evenodd" /></svg>
+                        <p id="error-message" class="text-sm font-medium text-red-800 dark:text-red-300"></p>
                     </div>
 
                     <div class="mb-5">
@@ -76,7 +78,16 @@
         </div>
     </main>
 
-    <script src="/api.js"></script>
+    <script src="./api.js"></script>
+    <script>
+        // Verify api.js loaded correctly
+        if (typeof window.api === 'undefined') {
+            console.error('api.js failed to load! Check the browser console for 404 errors.');
+            alert('Error: No se pudo cargar la API. Por favor, recarga la página.');
+        } else {
+            console.log('api.js loaded successfully');
+        }
+    </script>
     <script src="./js/ui.js"></script>
     <script src="./js/login.js"></script>
     <script src="./js/theme-toggle.js"></script>

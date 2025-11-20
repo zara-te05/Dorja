@@ -48,6 +48,10 @@ if (app.Environment.IsDevelopment())
 }
 
 //app.UseHttpsRedirection();
+
+// Enable static files for uploaded images
+app.UseStaticFiles();
+
 app.UseAuthorization();
 
 app.MapControllers();

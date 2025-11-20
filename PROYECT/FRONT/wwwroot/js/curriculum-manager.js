@@ -2,16 +2,16 @@
 class CurriculumManager {
     constructor() {
         this.currentUser = null;
-        this.electronAPI = window.electronAPI;
+        this.api = window.api;
         this.checkAPI();
     }
 
     checkAPI() {
-        if (!this.electronAPI) {
-            console.warn('⚠ electronAPI no está disponible. Usando datos de prueba.');
+        if (!this.api) {
+            console.warn('⚠ API no está disponible. Usando datos de prueba.');
             this.useMockData = true;
         } else {
-            console.log('✅ electronAPI disponible');
+            console.log('✅ API disponible');
             this.useMockData = false;
         }
     }
@@ -30,7 +30,7 @@ class CurriculumManager {
                 return await this.getMockTemas();
             }
 
-            const temas = await this.electronAPI.cargarTemas(this.currentUser);
+            const temas = await this.api.cargarTemas(this.currentUser);
             console.log('📚 Temas recibidos:', temas);
             return temas;
         } catch (error) {
@@ -49,7 +49,7 @@ class CurriculumManager {
                 return await this.getMockProblemas(temaId);
             }
 
-            const problemas = await this.electronAPI.cargarProblemas(this.currentUser, temaId);
+            const problemas = await this.api.cargarProblemas(this.currentUser, temaId);
             console.log('📝 Problemas recibidos:', problemas);
             return problemas;
         } catch (error) {
@@ -68,7 +68,7 @@ class CurriculumManager {
                 return await this.getMockProblema(problemaId);
             }
 
-            const problema = await this.electronAPI.obtenerProblema(problemaId);
+            const problema = await this.api.obtenerProblema(problemaId);
             console.log('📄 Problema recibido:', problema);
             return problema;
         } catch (error) {
@@ -87,7 +87,7 @@ class CurriculumManager {
                 return { correcto: true, mensaje: "¡Correcto! (simulado)" };
             }
 
-            const resultado = await this.electronAPI.verificarSolucion(this.currentUser, codigoUsuario, problemaId);
+            const resultado = await this.api.verificarSolucion(this.currentUser, codigoUsuario, problemaId);
             console.log('✅ Resultado verificación:', resultado);
             return resultado;
         } catch (error) {

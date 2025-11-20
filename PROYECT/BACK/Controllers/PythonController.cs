@@ -4,68 +4,114 @@ using System.Text;
 
 namespace BACK.Controllers
 {
-    [Route("api/[controller]")]
+    [Route("api/Python")]
     [ApiController]
-    public class PythonController : ControllerBase
+    public class CodeExecutionController : ControllerBase
     {
         [HttpPost("execute")]
-        public async Task<IActionResult> ExecutePython([FromBody] PythonExecuteRequest request)
+        public async Task<IActionResult> ExecuteCode([FromBody] CodeExecuteRequest request)
         {
             if (request == null || string.IsNullOrWhiteSpace(request.Code))
             {
-                return BadRequest(new { message = "El código Python es requerido" });
+                return BadRequest(new { message = "El código es requerido" });
+            }
+
+            if (string.IsNullOrWhiteSpace(request.Language))
+            {
+                return BadRequest(new { message = "El lenguaje de programación es requerido" });
             }
 
             try
             {
                 var output = new StringBuilder();
                 var error = new StringBuilder();
+                string command = "";
+                string fileExtension = "";
+                string tempFile = "";
 
-                // Try python3 first (Linux/Mac), then python (Windows)
-                string pythonCommand = "python3";
-                try
+                // Determine command and file extension based on language
+                if (request.Language.ToLower() == "python")
                 {
-                    var testProcess = new Process
+                    // Try python3 first (Linux/Mac), then python (Windows)
+                    command = "python3";
+                    try
                     {
-                        StartInfo = new ProcessStartInfo
+                        var testProcess = new Process
                         {
-                            FileName = pythonCommand,
-                            Arguments = "--version",
-                            RedirectStandardOutput = true,
-                            RedirectStandardError = true,
-                            UseShellExecute = false,
-                            CreateNoWindow = true
+                            StartInfo = new ProcessStartInfo
+                            {
+                                FileName = command,
+                                Arguments = "--version",
+                                RedirectStandardOutput = true,
+                                RedirectStandardError = true,
+                                UseShellExecute = false,
+                                CreateNoWindow = true
+                            }
+                        };
+                        testProcess.Start();
+                        testProcess.WaitForExit(1000);
+                        if (testProcess.ExitCode != 0)
+                        {
+                            command = "python";
                         }
-                    };
-                    testProcess.Start();
-                    testProcess.WaitForExit(1000);
-                    if (testProcess.ExitCode != 0)
-                    {
-                        pythonCommand = "python";
                     }
+                    catch
+                    {
+                        command = "python";
+                    }
+                    fileExtension = ".py";
+                    tempFile = Path.Combine(Path.GetTempPath(), $"code_exec_{Guid.NewGuid()}.py");
                 }
-                catch
+                else if (request.Language.ToLower() == "csharp" || request.Language.ToLower() == "c#")
                 {
-                    pythonCommand = "python";
+                    // For C#, use dotnet script to run C# scripts
+                    command = "dotnet";
+                    fileExtension = ".csx"; // C# script extension
+                    tempFile = Path.Combine(Path.GetTempPath(), $"code_exec_{Guid.NewGuid()}.csx");
+                }
+                else
+                {
+                    return BadRequest(new { message = $"Lenguaje no soportado: {request.Language}. Solo se soportan Python y C#" });
                 }
 
-                // Create a temporary file to store the Python code
-                var tempFile = Path.Combine(Path.GetTempPath(), $"python_exec_{Guid.NewGuid()}.py");
+                // Create a temporary file to store the code
                 await System.IO.File.WriteAllTextAsync(tempFile, request.Code, Encoding.UTF8);
 
                 try
                 {
-                    var processStartInfo = new ProcessStartInfo
+                    ProcessStartInfo processStartInfo;
+                    
+                    if (request.Language.ToLower() == "csharp" || request.Language.ToLower() == "c#")
                     {
-                        FileName = pythonCommand,
-                        Arguments = $"\"{tempFile}\"",
-                        RedirectStandardOutput = true,
-                        RedirectStandardError = true,
-                        UseShellExecute = false,
-                        CreateNoWindow = true,
-                        StandardOutputEncoding = Encoding.UTF8,
-                        StandardErrorEncoding = Encoding.UTF8
-                    };
+                        // For C#, use dotnet script to run C# scripts
+                        processStartInfo = new ProcessStartInfo
+                        {
+                            FileName = "dotnet",
+                            Arguments = $"script \"{tempFile}\"",
+                            RedirectStandardOutput = true,
+                            RedirectStandardError = true,
+                            UseShellExecute = false,
+                            CreateNoWindow = true,
+                            WorkingDirectory = Path.GetDirectoryName(tempFile),
+                            StandardOutputEncoding = Encoding.UTF8,
+                            StandardErrorEncoding = Encoding.UTF8
+                        };
+                    }
+                    else
+                    {
+                        // Python execution
+                        processStartInfo = new ProcessStartInfo
+                        {
+                            FileName = command,
+                            Arguments = $"\"{tempFile}\"",
+                            RedirectStandardOutput = true,
+                            RedirectStandardError = true,
+                            UseShellExecute = false,
+                            CreateNoWindow = true,
+                            StandardOutputEncoding = Encoding.UTF8,
+                            StandardErrorEncoding = Encoding.UTF8
+                        };
+                    }
 
                     using (var process = new Process())
                     {
@@ -114,12 +160,14 @@ namespace BACK.Controllers
                         var outputText = output.ToString().TrimEnd();
                         var errorText = error.ToString().TrimEnd();
 
+                        var finalOutput = string.IsNullOrWhiteSpace(outputText) && string.IsNullOrWhiteSpace(errorText)
+                            ? "(Sin salida)"
+                            : (outputText + (string.IsNullOrWhiteSpace(errorText) ? "" : "\n" + CleanErrorMessage(errorText, tempFile)));
+
                         return Ok(new
                         {
                             success = string.IsNullOrWhiteSpace(errorText) && process.ExitCode == 0,
-                            output = string.IsNullOrWhiteSpace(outputText) && string.IsNullOrWhiteSpace(errorText) 
-                                ? "(Sin salida)" 
-                                : (outputText + (string.IsNullOrWhiteSpace(errorText) ? "" : "\n" + errorText)),
+                            output = finalOutput,
                             exitCode = process.ExitCode
                         });
                     }
@@ -142,16 +190,47 @@ namespace BACK.Controllers
                 return StatusCode(500, new
                 {
                     success = false,
-                    output = $"Error al ejecutar Python: {ex.Message}",
-                    error = ex.ToString()
+                    output = $"Error al ejecutar el código: {CleanErrorMessage(ex.Message, "")}"
                 });
             }
         }
+
+        // Helper method to clean error messages (remove file paths)
+        private string CleanErrorMessage(string error, string tempFile)
+        {
+            if (string.IsNullOrWhiteSpace(error))
+                return error;
+
+            var cleaned = error;
+
+            // Remove temp file paths
+            if (!string.IsNullOrWhiteSpace(tempFile))
+            {
+                cleaned = cleaned.Replace(tempFile, "[archivo temporal]");
+                var tempDir = Path.GetDirectoryName(tempFile);
+                if (!string.IsNullOrWhiteSpace(tempDir))
+                {
+                    cleaned = cleaned.Replace(tempDir, "[directorio temporal]");
+                }
+            }
+
+            // Remove common temp path patterns
+            cleaned = System.Text.RegularExpressions.Regex.Replace(cleaned, @"[A-Z]:\\[^\\]+\\Temp\\[^\s]+", "[archivo temporal]");
+            cleaned = System.Text.RegularExpressions.Regex.Replace(cleaned, @"/tmp/[^\s]+", "[archivo temporal]");
+            cleaned = System.Text.RegularExpressions.Regex.Replace(cleaned, @"C:\\Users\\[^\\]+\\AppData\\Local\\Temp\\[^\s]+", "[archivo temporal]");
+
+            // Remove line number references to temp files but keep the error message
+            cleaned = System.Text.RegularExpressions.Regex.Replace(cleaned, @"File\s+""[^""]+"",\s+line\s+\d+", "Línea");
+            cleaned = System.Text.RegularExpressions.Regex.Replace(cleaned, @"in\s+<module>", "en el código");
+
+            return cleaned.Trim();
+        }
     }
 
-    public class PythonExecuteRequest
+    public class CodeExecuteRequest
     {
         public string Code { get; set; } = string.Empty;
+        public string Language { get; set; } = "python";
     }
 }
 

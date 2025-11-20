@@ -7,10 +7,77 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     };
     let editor;
+    let currentLanguage = 'python';
+    
+    const pythonDefaultCode = `# Escribe tu solución aquí
+def procesar_numeros(lista):
+    suma_pares = 0
+    producto_impares = 1
+    
+    if not lista:
+        return (0, 1, None)
+        
+    mayor = lista[0]
+    
+    for num in lista:
+        if num % 2 == 0:
+            suma_pares += num
+        else:
+            producto_impares *= num
+        
+        if num > mayor:
+            mayor = num
+            
+    return (suma_pares, producto_impares, mayor)
+
+# Prueba tu función
+numeros = [1, 2, 3, 4, 5, 9]
+resultado = procesar_numeros(numeros)
+print(f"Resultado para {numeros}: {resultado}")`;
+
+    const csharpDefaultCode = `// Escribe tu solución aquí
+using System;
+using System.Collections.Generic;
+using System.Linq;
+
+public class Program
+{
+    public static void Main()
+    {
+        var numeros = new List<int> { 1, 2, 3, 4, 5, 9 };
+        var resultado = ProcesarNumeros(numeros);
+        Console.WriteLine($"Resultado para [{string.Join(", ", numeros)}]: {resultado}");
+    }
+    
+    public static (int sumaPares, int productoImpares, int? mayor) ProcesarNumeros(List<int> lista)
+    {
+        if (lista == null || lista.Count == 0)
+            return (0, 1, null);
+            
+        int sumaPares = 0;
+        int productoImpares = 1;
+        int mayor = lista[0];
+        
+        foreach (var num in lista)
+        {
+            if (num % 2 == 0)
+                sumaPares += num;
+            else
+                productoImpares *= num;
+                
+            if (num > mayor)
+                mayor = num;
+        }
+        
+        return (sumaPares, productoImpares, mayor);
+    }
+}`;
+
     require(["vs/editor/editor.main"], function () {
         const getCurrentTheme = () => document.documentElement.classList.contains('dark') ? 'vs-dark' : 'vs-light';
+        
         editor = monaco.editor.create(document.getElementById('editor'), {
-            value: `# Escribe tu solución aquí\ndef procesar_numeros(lista):\n    suma_pares = 0\n    producto_impares = 1\n    \n    if not lista:\n        return (0, 1, None)\n        \n    mayor = lista[0]\n    \n    for num in lista:\n        if num % 2 == 0:\n            suma_pares += num\n        else:\n            producto_impares *= num\n        \n        if num > mayor:\n            mayor = num\n            \n    return (suma_pares, producto_impares, mayor)\n\n# Prueba tu función\nnumeros = [1, 2, 3, 4, 5, 9]\nresultado = procesar_numeros(numeros)\nprint(f"Resultado para {numeros}: {resultado}")`,
+            value: pythonDefaultCode,
             language: 'python',
             theme: getCurrentTheme(),
             automaticLayout: true,
@@ -19,25 +86,61 @@ document.addEventListener('DOMContentLoaded', () => {
             scrollBeyondLastLine: false,
             renderLineHighlight: 'all',
             lineNumbers: 'on',
-            wordWrap: 'on'
+            wordWrap: 'on',
+            // Enable IntelliSense
+            quickSuggestions: true,
+            suggestOnTriggerCharacters: true,
+            acceptSuggestionOnEnter: 'on',
+            tabCompletion: 'on',
+            wordBasedSuggestions: 'allDocuments',
+            // Additional IntelliSense settings
+            parameterHints: { enabled: true },
+            hover: { enabled: true },
+            formatOnPaste: true,
+            formatOnType: true
         });
+
         const outputContent = document.getElementById('output-content');
         const runBtn = document.getElementById('run-btn');
         const verifyBtn = document.getElementById('verify-btn');
+        const languageSelector = document.getElementById('language-selector');
+
+        // Language selector handler
+        languageSelector.addEventListener('change', (e) => {
+            const newLanguage = e.target.value;
+            const currentValue = editor.getValue();
+            
+            // Save current code if user wants to switch
+            if (currentLanguage === 'python' && currentValue !== pythonDefaultCode) {
+                // Could save to localStorage here
+            }
+            
+            currentLanguage = newLanguage;
+            const monacoLanguage = newLanguage === 'csharp' ? 'csharp' : 'python';
+            const defaultCode = newLanguage === 'csharp' ? csharpDefaultCode : pythonDefaultCode;
+            
+            monaco.editor.setModelLanguage(editor.getModel(), monacoLanguage);
+            editor.setValue(defaultCode);
+        });
+
         runBtn.addEventListener('click', async () => {
             const code = editor.getValue();
             outputContent.textContent = "Ejecutando...";
             verifyBtn.disabled = true;
+            runBtn.disabled = true;
             try {
-                const result = await window.api.executePython(code);
-                outputContent.textContent = result.output;
+                const result = await window.api.executeCode(code, currentLanguage);
+                outputContent.textContent = result.output || result.message || 'Error desconocido';
                 if (result.success) {
                     verifyBtn.disabled = false;
                 }
             } catch (error) {
-                outputContent.textContent = `Error de comunicación:\n${error}`;
+                outputContent.textContent = `Error de comunicación:\n${error.message || error}`;
+            } finally {
+                runBtn.disabled = false;
             }
         });
+        
         const observer = new MutationObserver(() => { monaco.editor.setTheme(getCurrentTheme()); });
         observer.observe(document.documentElement, { attributes: true, attributeFilter: ['class'] });
     });

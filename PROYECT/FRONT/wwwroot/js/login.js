@@ -68,6 +68,11 @@ document.addEventListener('DOMContentLoaded', () => {
             setFormState(true, 'Procesando...');
 
             try {
+                // Check if api is loaded
+                if (!window.api || !window.api.login) {
+                    throw new Error('API no está disponible. Por favor, recarga la página.');
+                }
+
                 const result = await window.api.login({
                     username: usernameInput.value,
                     password: passwordInput.value

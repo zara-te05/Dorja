@@ -90,14 +90,29 @@ namespace BACK.Controllers
                 return BadRequest(new { message = "Email, Username y Password son obligatorios" });
             }
 
-            var existing = await _usersRepository.GetByEmail(users.Email);
-
-            if (existing != null)
+            // Check if email already exists
+            var existingByEmail = await _usersRepository.GetByEmail(users.Email);
+            if (existingByEmail != null)
             {
                 return Conflict(new { message = "El email ya está registrado" });
             }
 
+            // Check if username already exists
+            var existingByUsername = await _usersRepository.GetByUsername(users.Username);
+            if (existingByUsername != null)
+            {
+                return Conflict(new { message = "El nombre de usuario ya está en uso" });
+            }
+
+            // Set default values for new user
             users.Password = HashPassword(users.Password);
+            users.FechaRegistro = DateTime.Now;
+            users.UltimaConexion = null; // Will be set on first login
+            users.PuntosTotales = 0;
+            users.NivelActual = 1; // Start at level 1
+            users.ProfilePhotoPath = string.Empty;
+            users.CoverPhotoPath = string.Empty;
+
             var created = await _usersRepository.InsertUsers(users);
 
             if (!created)
@@ -170,6 +185,87 @@ namespace BACK.Controllers
             public string? Username { get; set; }
             public string? Email { get; set; }
             public string? Password { get; set; }
+        }
+
+        // --------------------------  IMAGE UPLOAD  ----------------------------
+
+        [HttpPost("{userId}/upload-image")]
+        public async Task<IActionResult> UploadImage(int userId, [FromForm] IFormFile file, [FromForm] string imageType)
+        {
+            if (file == null || file.Length == 0)
+            {
+                return BadRequest(new { message = "No se proporcionó ningún archivo" });
+            }
+
+            if (string.IsNullOrWhiteSpace(imageType) || (imageType != "profile" && imageType != "cover"))
+            {
+                return BadRequest(new { message = "Tipo de imagen inválido. Debe ser 'profile' o 'cover'" });
+            }
+
+            // Validate file type
+            var allowedExtensions = new[] { ".jpg", ".jpeg", ".png", ".gif" };
+            var fileExtension = Path.GetExtension(file.FileName).ToLowerInvariant();
+            if (!allowedExtensions.Contains(fileExtension))
+            {
+                return BadRequest(new { message = "Tipo de archivo no permitido. Solo se permiten imágenes (JPG, PNG, GIF)" });
+            }
+
+            // Validate file size (max 5MB)
+            if (file.Length > 5 * 1024 * 1024)
+            {
+                return BadRequest(new { message = "El archivo es demasiado grande. El tamaño máximo es 5MB" });
+            }
+
+            try
+            {
+                // Get user to update
+                var user = await _usersRepository.GetDetails(userId);
+                if (user == null)
+                {
+                    return NotFound(new { message = "Usuario no encontrado" });
+                }
+
+                // Create uploads directory if it doesn't exist
+                var uploadsDir = Path.Combine(Directory.GetCurrentDirectory(), "wwwroot", "uploads", "users", userId.ToString());
+                if (!Directory.Exists(uploadsDir))
+                {
+                    Directory.CreateDirectory(uploadsDir);
+                }
+
+                // Generate unique filename
+                var fileName = $"{imageType}_{Guid.NewGuid()}{fileExtension}";
+                var filePath = Path.Combine(uploadsDir, fileName);
+                var relativePath = $"/uploads/users/{userId}/{fileName}";
+
+                // Save file
+                using (var stream = new FileStream(filePath, FileMode.Create))
+                {
+                    await file.CopyToAsync(stream);
+                }
+
+                // Update user record
+                if (imageType == "profile")
+                {
+                    user.ProfilePhotoPath = relativePath;
+                }
+                else
+                {
+                    user.CoverPhotoPath = relativePath;
+                }
+
+                await _usersRepository.UpdateUsuarios(user);
+
+                return Ok(new
+                {
+                    success = true,
+                    message = "Imagen subida exitosamente",
+                    path = relativePath
+                });
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(500, new { message = $"Error al subir la imagen: {ex.Message}" });
+            }
         }
 
         // --------------------------  HASH  ----------------------------

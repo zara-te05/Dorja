@@ -33,7 +33,14 @@
                 throw new Error(result?.message || `Error ${response.status}: ${response.statusText}`);
             }
 
-            return { success: true, data: result, ...result };
+            // Handle different response types
+            if (Array.isArray(result)) {
+                return { success: true, data: result };
+            } else if (result && typeof result === 'object') {
+                return { success: true, data: result, ...result };
+            } else {
+                return { success: true, data: result };
+            }
         } catch (error) {
             console.error(`Error en API ${endpoint}:`, error);
             let errorMessage = error.message || 'Error de conexión con el servidor';
@@ -135,21 +142,43 @@
     },
 
     saveImage: async (data) => {
-        // Image saving functionality - this would need a backend endpoint
-        // For now, store in localStorage as a workaround
         try {
-            const key = `user_${data.userId}_${data.imageType}`;
-            localStorage.setItem(key, data.dataUrl);
-            return { success: true, message: 'Imagen guardada localmente' };
+            // Convert data URL to blob
+            const response = await fetch(data.dataUrl);
+            const blob = await response.blob();
+            
+            // Create FormData
+            const formData = new FormData();
+            formData.append('file', blob, `image.${blob.type.split('/')[1]}`);
+            formData.append('imageType', data.imageType);
+
+            const uploadResponse = await fetch(`${this.baseUrl}/Users/${data.userId}/upload-image`, {
+                method: 'POST',
+                body: formData
+            });
+
+            const result = await uploadResponse.json().catch(() => null);
+
+            if (!uploadResponse.ok) {
+                throw new Error(result?.message || `Error ${uploadResponse.status}: ${uploadResponse.statusText}`);
+            }
+
+            return { success: true, message: result.message || 'Imagen guardada exitosamente', path: result.path };
         } catch (error) {
-            return { success: false, message: 'Error al guardar la imagen' };
+            console.error('Error al guardar la imagen:', error);
+            return { success: false, message: error.message || 'Error al guardar la imagen' };
         }
     },
 
     executePython: async (code) => {
+        // Legacy method - redirects to executeCode
+        return await window.api.executeCode(code, 'python');
+    },
+
+    executeCode: async (code, language = 'python') => {
         const result = await window.api._makeRequest('/Python/execute', {
             method: 'POST',
-            body: { code: code }
+            body: { code: code, language: language }
         });
         
         return {
@@ -161,22 +190,41 @@
     // Curriculum-related APIs
     cargarTemas: async (userId) => {
         const result = await window.api._makeRequest('/Temas');
-        return result.data || [];
+        // The API returns data directly, not wrapped in a data property
+        if (Array.isArray(result)) {
+            return result;
+        }
+        return result.data || result || [];
     },
 
     cargarProblemas: async (userId, temaId) => {
         // Get all problems and filter by temaId, or use a specific endpoint if available
         const result = await window.api._makeRequest('/Problemas');
-        if (result.data && Array.isArray(result.data)) {
-            // Filter by temaId if the backend doesn't have a specific endpoint
-            return result.data.filter(p => p.temaId === temaId || p.tema_id === temaId);
+        let problems = [];
+        
+        // Handle different response formats
+        if (Array.isArray(result)) {
+            problems = result;
+        } else if (result.data && Array.isArray(result.data)) {
+            problems = result.data;
+        } else if (result.success && Array.isArray(result.data)) {
+            problems = result.data;
+        }
+        
+        // Filter by temaId if the backend doesn't have a specific endpoint
+        if (problems.length > 0) {
+            return problems.filter(p => p.temaId === temaId || p.tema_id === temaId || p.TemaId === temaId);
         }
         return [];
     },
 
     obtenerProblema: async (problemaId) => {
         const result = await window.api._makeRequest(`/Problemas/${problemaId}`);
-        return result.data || result;
+        // Handle different response formats
+        if (result && typeof result === 'object' && !result.success) {
+            return result;
+        }
+        return result.data || result || null;
     },
 
     verificarSolucion: async (userId, codigo, problemaId) => {

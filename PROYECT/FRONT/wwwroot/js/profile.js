@@ -49,14 +49,16 @@ document.addEventListener('DOMContentLoaded', async () => {
 
                 const initial = user.username.charAt(0).toUpperCase();
                 
-                if (user.profilePhotoPath) {
-                    profilePhoto.src = `file://${user.profilePhotoPath}`;
+                if (user.profilePhotoPath && user.profilePhotoPath.trim() !== '') {
+                    // Use backend URL for images
+                    profilePhoto.src = `http://localhost:5222${user.profilePhotoPath}`;
                 } else {
                     profilePhoto.src = `https://via.placeholder.com/150/818cf8/ffffff?text=${initial}`;
                 }
 
-                if (user.coverPhotoPath) {
-                    coverPhoto.src = `file://${user.coverPhotoPath}`;
+                if (user.coverPhotoPath && user.coverPhotoPath.trim() !== '') {
+                    // Use backend URL for images
+                    coverPhoto.src = `http://localhost:5222${user.coverPhotoPath}`;
                 } else {
                     coverPhoto.src = `https://via.placeholder.com/1500x500/6366F1/FFFFFF?text=Dashboard`;
                 }
@@ -71,25 +73,46 @@ document.addEventListener('DOMContentLoaded', async () => {
     }
     await loadUserProfile();
 
-        const handleImageUpload = (file, imageType) => {
-        if (file) {
-            const reader = new FileReader();
-            reader.onload = async (e) => {
-                const dataUrl = e.target.result;
-                try {
-                    const imgElement = imageType === 'profile' ? profilePhoto : coverPhoto;
-                    imgElement.src = dataUrl;
+    const handleImageUpload = async (file, imageType) => {
+        if (!file) return;
 
-                    await window.api.saveImage({ userId, imageType, dataUrl });
-                    alert(`La foto de ${imageType} se ha actualizado.`);
-                } catch (error) {
-                    console.error(`Error al guardar la imagen de ${imageType}:`, error);
-                    alert('No se pudo guardar la imagen.');
-                    await loadUserProfile();
-                }
-            };
-            reader.readAsDataURL(file);
+        // Validate file type
+        const validTypes = ['image/jpeg', 'image/jpg', 'image/png', 'image/gif'];
+        if (!validTypes.includes(file.type)) {
+            alert('Tipo de archivo no válido. Solo se permiten imágenes (JPG, PNG, GIF).');
+            return;
         }
+
+        // Validate file size (5MB max)
+        if (file.size > 5 * 1024 * 1024) {
+            alert('El archivo es demasiado grande. El tamaño máximo es 5MB.');
+            return;
+        }
+
+        // Show preview immediately
+        const reader = new FileReader();
+        reader.onload = async (e) => {
+            const dataUrl = e.target.result;
+            const imgElement = imageType === 'profile' ? profilePhoto : coverPhoto;
+            imgElement.src = dataUrl;
+
+            try {
+                const result = await window.api.saveImage({ userId, imageType, dataUrl });
+                if (result.success) {
+                    // Reload profile to get updated paths
+                    await loadUserProfile();
+                    alert(`La foto de ${imageType === 'profile' ? 'perfil' : 'portada'} se ha actualizado exitosamente.`);
+                } else {
+                    alert(result.message || 'No se pudo guardar la imagen.');
+                    await loadUserProfile(); // Restore original image
+                }
+            } catch (error) {
+                console.error(`Error al guardar la imagen de ${imageType}:`, error);
+                alert('No se pudo guardar la imagen. Por favor, intenta de nuevo.');
+                await loadUserProfile(); // Restore original image
+            }
+        };
+        reader.readAsDataURL(file);
     };
 
     profilePhotoInput.addEventListener('change', (e) => handleImageUpload(e.target.files[0], 'profile'));
