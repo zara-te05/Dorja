@@ -111,32 +111,41 @@ namespace BACK.Controllers
         // --------------------------  LOGIN  ----------------------------
 
         [HttpPost("login")]
-        public async Task<IActionResult> Login([FromBody] Users users)
+        public async Task<IActionResult> Login([FromBody] LoginRequest request)
         {
-            if (users == null)
+            if (request == null)
             {
                 return BadRequest(new { message = "Datos inválidos" });
             }
 
-            if (string.IsNullOrWhiteSpace(users.Email) || string.IsNullOrWhiteSpace(users.Password))
+            if ((string.IsNullOrWhiteSpace(request.Email) && string.IsNullOrWhiteSpace(request.Username)) || string.IsNullOrWhiteSpace(request.Password))
             {
-                return BadRequest(new { message = "Email y Password son obligatorios" });
+                return BadRequest(new { message = "Email/Username y Password son obligatorios" });
             }
 
-            // Buscar usuario por email
-            var existing = await _usersRepository.GetByEmail(users.Email);
+            // Try to find user by email or username
+            Users? existing = null;
+            if (!string.IsNullOrWhiteSpace(request.Email))
+            {
+                existing = await _usersRepository.GetByEmail(request.Email);
+            }
+            
+            if (existing == null && !string.IsNullOrWhiteSpace(request.Username))
+            {
+                existing = await _usersRepository.GetByUsername(request.Username);
+            }
 
             if (existing == null)
             {
-                return Unauthorized(new { message = "Email o contraseña incorrectos" });
+                return Unauthorized(new { message = "Email/Username o contraseña incorrectos" });
             }
 
             // Hashear la contraseña ingresada para compararla con la almacenada
-            var hashedInputPassword = HashPassword(users.Password);
+            var hashedInputPassword = HashPassword(request.Password);
 
             if (existing.Password != hashedInputPassword)
             {
-                return Unauthorized(new { message = "Email o contraseña incorrectos" });
+                return Unauthorized(new { message = "Email/Username o contraseña incorrectos" });
             }
 
             // Aquí podrías generar un token JWT (si quieres seguridad avanzada)
@@ -153,6 +162,14 @@ namespace BACK.Controllers
                     existing.ApellidoMaterno
                 }
             });
+        }
+
+        // Helper class for login request
+        public class LoginRequest
+        {
+            public string? Username { get; set; }
+            public string? Email { get; set; }
+            public string? Password { get; set; }
         }
 
         // --------------------------  HASH  ----------------------------

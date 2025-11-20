@@ -50,15 +50,15 @@ document.addEventListener('DOMContentLoaded', async () => {
                 const initial = user.username.charAt(0).toUpperCase();
                 
                 if (user.profilePhotoPath) {
-                    profilePhotoImg.src = `file://${user.profilePhotoPath}`;
+                    profilePhoto.src = `file://${user.profilePhotoPath}`;
                 } else {
-                    profilePhotoImg.src = `https://via.placeholder.com/150/818cf8/ffffff?text=${initial}`;
+                    profilePhoto.src = `https://via.placeholder.com/150/818cf8/ffffff?text=${initial}`;
                 }
 
                 if (user.coverPhotoPath) {
-                    coverPhotoImg.src = `file://${user.coverPhotoPath}`;
+                    coverPhoto.src = `file://${user.coverPhotoPath}`;
                 } else {
-                    coverPhotoImg.src = `https://via.placeholder.com/1500x500/6366F1/FFFFFF?text=Dashboard`;
+                    coverPhoto.src = `https://via.placeholder.com/1500x500/6366F1/FFFFFF?text=Dashboard`;
                 }
 
             } else {
@@ -77,7 +77,7 @@ document.addEventListener('DOMContentLoaded', async () => {
             reader.onload = async (e) => {
                 const dataUrl = e.target.result;
                 try {
-                    const imgElement = imageType === 'profile' ? profilePhotoImg : coverPhotoImg;
+                    const imgElement = imageType === 'profile' ? profilePhoto : coverPhoto;
                     imgElement.src = dataUrl;
 
                     await window.api.saveImage({ userId, imageType, dataUrl });

@@ -12,5 +12,6 @@ namespace DorjaModelado.Repositories
         Task<bool> UpdateUsuarios(Users usuario);
         Task<bool> DeleteUsuarios(Users usuario);
         Task<Users?> GetByEmail(string email);
+        Task<Users?> GetByUsername(string username);
     }
 }

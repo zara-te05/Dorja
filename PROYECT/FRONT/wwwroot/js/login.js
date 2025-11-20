@@ -1,6 +1,5 @@
 document.addEventListener('DOMContentLoaded', () => {
     const loginForm = document.getElementById('login-form');
-    const googleLoginBtn = document.getElementById('google-login-btn');
     
     // Referencias al contenedor de error
     const errorContainer = document.getElementById('error-container');
@@ -41,37 +40,7 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     };
 
-    // Manejo del login con Google
-    if (googleLoginBtn) {
-        googleLoginBtn.addEventListener('click', async (e) => {
-            e.preventDefault();
-            
-            try {
-                // Mostrar estado de carga
-                googleLoginBtn.disabled = true;
-                const originalText = googleLoginBtn.textContent;
-                googleLoginBtn.textContent = 'Conectando con Google...';
-                hideError();
-
-                const result = await window.api.googleLogin();
-                if (result.success) {
-                    sessionStorage.setItem('userId', result.user.id);
-                    window.location.href = 'home.html';
-                } else {
-                    displayError(result.message || 'Error al iniciar sesión con Google.');
-                }
-            } catch (error) {
-                console.error("Error en login con Google:", error);
-                displayError(error.message || 'Error al iniciar sesión con Google.');
-            } finally {
-                // Restaurar estado del botón
-                googleLoginBtn.disabled = false;
-                googleLoginBtn.textContent = originalText || 'Continuar con Google';
-            }
-        });
-    }
-
-    // Manejo del formulario de login tradicional
+    // Manejo del formulario de login
     if (loginForm) {
         loginForm.addEventListener('submit', async (e) => {
             e.preventDefault();

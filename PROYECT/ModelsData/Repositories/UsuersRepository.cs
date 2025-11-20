@@ -92,6 +92,16 @@ namespace DorjaModelado.Repositories
             return await db.QueryFirstOrDefaultAsync<Users>(sql, new { Email = email });
         }
 
+        public async Task<Users?> GetByUsername(string username)
+        {
+            var db = dbConnection();
+            var sql = @"SELECT id, username, nombre, apellidoPaterno, apellidoMaterno,
+                        email, password, fechaRegistro, ultimaConexion, puntosTotales, nivelActual
+                        FROM users WHERE username = @Username";
+
+            return await db.QueryFirstOrDefaultAsync<Users>(sql, new { Username = username });
+        }
+
         public async Task<Users?> ValidateLogin(string email, string passwordHash)
         {
             var db = dbConnection();
