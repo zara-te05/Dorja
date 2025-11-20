@@ -4,7 +4,20 @@
     // Helper method for making API calls
     async _makeRequest(endpoint, options = {}) {
         try {
-            const response = await fetch(`${this.baseUrl}${endpoint}`, {
+            // Ensure we're using HTTP, not HTTPS
+            let url = `${this.baseUrl}${endpoint}`;
+            // Force HTTP protocol if somehow HTTPS got in there
+            if (url.startsWith('https://')) {
+                url = url.replace('https://', 'http://');
+            }
+            // Ensure it starts with http://
+            if (!url.startsWith('http://') && !url.startsWith('https://')) {
+                url = `http://${url}`;
+            }
+
+            console.log('Making API request to:', url);
+
+            const response = await fetch(url, {
                 method: options.method || 'GET',
                 headers: {
                     "Content-Type": "application/json",
@@ -23,9 +36,18 @@
             return { success: true, data: result, ...result };
         } catch (error) {
             console.error(`Error en API ${endpoint}:`, error);
+            let errorMessage = error.message || 'Error de conexión con el servidor';
+            
+            // Provide more helpful error messages
+            if (error.message && error.message.includes('SSL') || error.message.includes('HTTPS')) {
+                errorMessage = 'Error: El servidor está configurado para HTTP, no HTTPS. Verifica que el backend esté ejecutándose en http://localhost:5222';
+            } else if (error.message && error.message.includes('Failed to fetch')) {
+                errorMessage = 'Error: No se pudo conectar con el servidor. Asegúrate de que el backend esté ejecutándose en http://localhost:5222';
+            }
+            
             return {
                 success: false,
-                message: error.message || 'Error de conexión con el servidor'
+                message: errorMessage
             };
         }
     },
