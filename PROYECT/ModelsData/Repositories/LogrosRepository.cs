@@ -1,6 +1,6 @@
 ﻿using Dapper;
 using DorjaModelado;
-using MySql.Data.MySqlClient;
+using Microsoft.Data.Sqlite;
 using System;
 using System.Collections.Generic;
 using System.Threading.Tasks;
@@ -9,16 +9,16 @@ namespace DorjaData.Repositories
 {
     public class LogrosRepository : ILogrosRepository
     {
-        private readonly MySQLConfiguration _connectionString;
+        private readonly SQLiteConfiguration _connectionString;
 
-        public LogrosRepository(MySQLConfiguration connectionString)
+        public LogrosRepository(SQLiteConfiguration connectionString)
         {
             _connectionString = connectionString;
         }
 
-        protected MySqlConnection dbConnection()
+        protected SqliteConnection dbConnection()
         {
-            return new MySqlConnection(_connectionString.ConnectionString);
+            return new SqliteConnection(_connectionString.ConnectionString);
         }
 
         public async Task<IEnumerable<Logros>> GetAllLogros()
@@ -38,8 +38,8 @@ namespace DorjaData.Repositories
         public async Task<bool> InsertLogros(Logros logros)
         {
             var db = dbConnection();
-            var sql = @"INSERT INTO logros (nombre, descripcion, iconoPath) 
-                        VALUES (@Nombre, @Descripcion, @IconoPath)";
+            var sql = @"INSERT INTO logros (nombre, descripcion, iconoPhoto) 
+                        VALUES (@Nombre, @Descripcion, @iconoPhoto)";
             var result = await db.ExecuteAsync(sql, logros);
             return result > 0;
         }
@@ -50,7 +50,7 @@ namespace DorjaData.Repositories
             var sql = @"UPDATE logros SET 
                             nombre = @Nombre,
                             descripcion = @Descripcion,
-                            iconoPath = @IconoPath
+                            iconoPhoto = @iconoPhoto
                         WHERE id = @Id";
             var result = await db.ExecuteAsync(sql, logros);
             return result > 0;

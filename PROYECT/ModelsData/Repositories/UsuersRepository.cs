@@ -1,6 +1,6 @@
 ﻿using Dapper;
 using DorjaData;
-using MySql.Data.MySqlClient;
+using Microsoft.Data.Sqlite;
 using System.Collections.Generic;
 using System.Threading.Tasks;
 
@@ -8,16 +8,16 @@ namespace DorjaModelado.Repositories
 {
     public class UsersRepository : IUserRepository
     {
-        private readonly MySQLConfiguration _connectionString;
+        private readonly SQLiteConfiguration _connectionString;
 
-        public UsersRepository(MySQLConfiguration connectionString)
+        public UsersRepository(SQLiteConfiguration connectionString)
         {
             _connectionString = connectionString;
         }
 
-        protected MySqlConnection dbConnection()
+        protected SqliteConnection dbConnection()
         {
-            return new MySqlConnection(_connectionString.ConnectionString);
+            return new SqliteConnection(_connectionString.ConnectionString);
         }
 
         public Task<IEnumerable<Users>> GetAllUsers()

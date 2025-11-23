@@ -1,4 +1,9 @@
-﻿window.api = {
+﻿// Ensure window.api is only defined once
+if (typeof window.api === 'undefined') {
+// Check if we're in Electron or web browser
+const isElectron = typeof window !== 'undefined' && (window.electronAPI || (window.process && window.process.type));
+
+window.api = {
     baseUrl: 'http://localhost:5222/api',
 
     // Helper method for making API calls
@@ -243,5 +248,22 @@
             success: false,
             message: 'Marcar problema como completado requiere implementación en el backend'
         };
+    },
+
+    // Progress and curriculum APIs
+    getAllNiveles: async () => {
+        const result = await window.api._makeRequest('/Niveles');
+        return result.data || result;
+    },
+
+    getAllTemas: async () => {
+        const result = await window.api._makeRequest('/Temas');
+        return result.data || result;
+    },
+
+    getProgresoByUserId: async (userId) => {
+        const result = await window.api._makeRequest(`/Progreso_Problema?userId=${userId}`);
+        return result.data || result;
     }
 };
+} // End of window.api definition check

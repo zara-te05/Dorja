@@ -1,6 +1,6 @@
 ﻿using Dapper;
 using DorjaModelado;
-using MySql.Data.MySqlClient;
+using Microsoft.Data.Sqlite;
 using System;
 using System.Collections.Generic;
 using System.Text;
@@ -9,21 +9,21 @@ namespace DorjaData.Repositories
 {
     public class Logros_UsuarioRepository : ILogros_UsuarioRepository
     {
-        private readonly MySQLConfiguration _connectionString;
+        private readonly SQLiteConfiguration _connectionString;
 
-        public Logros_UsuarioRepository(MySQLConfiguration connectionString)
+        public Logros_UsuarioRepository(SQLiteConfiguration connectionString)
         {
             _connectionString = connectionString;
         }
 
-        protected MySqlConnection dbConnection()
+        protected SqliteConnection dbConnection()
         {
-            return new MySqlConnection(_connectionString.ConnectionString);
+            return new SqliteConnection(_connectionString.ConnectionString);
         }
         public  async Task<bool> DeleteLogrosUsuario(Logros_Usuario logros_Usuario)
         {
             var db = dbConnection();
-            var sql = @"DELETE FROM logros_usuarios WHERE id = @id";
+            var sql = @"DELETE FROM logros_usuario WHERE id = @id";
 
             var result = await db.ExecuteAsync(sql, new { id = logros_Usuario.id });
             return result > 0;
@@ -32,7 +32,7 @@ namespace DorjaData.Repositories
         public Task<IEnumerable<Logros_Usuario>> GetAllLogrosUsuario()
         {
             var db = dbConnection();
-            var sql = @"SELECT id, user_id, logro_id, fechaDesbloqueo
+            var sql = @"SELECT id, user_id as Id_Usuario, logro_id as Id_Logro, fechaDesbloqueo as Fecha_Obtencion
                         FROM logros_usuario";
 
             return db.QueryAsync<Logros_Usuario>(sql, new { });
@@ -41,10 +41,9 @@ namespace DorjaData.Repositories
         public async Task<Logros_Usuario> GetDetails(int id)
         {
             var db = dbConnection();
-            var sql = @"SELECT id, user_id, logro_id, fechaDesbloqueo
+            var sql = @"SELECT id, user_id as Id_Usuario, logro_id as Id_Logro, fechaDesbloqueo as Fecha_Obtencion
                         FROM logros_usuario
-                FROM temas
-                WHERE id = @id";
+                        WHERE id = @id";
 
             return await db.QueryFirstOrDefaultAsync<Logros_Usuario>(sql, new { id });
         }
@@ -54,8 +53,7 @@ namespace DorjaData.Repositories
         {
             var db = dbConnection();
             var sql = @"INSERT INTO logros_usuario (user_id, logro_id, fechaDesbloqueo)
-
-                VALUES (@user_id, @logro_id, @fechaDesbloqueo)";
+                VALUES (@Id_Usuario, @Id_Logro, @Fecha_Obtencion)";
 
             var result = await db.ExecuteAsync(sql, logros_Usuario);
 
@@ -66,10 +64,10 @@ namespace DorjaData.Repositories
         public async Task<bool> UpdateLogrosUsuario(Logros_Usuario logros_Usuario)
         {
             var db = dbConnection();
-            var sql = @"UPDATE temas SET
-                    user_id = @user_id,
-                    logro_id = @logro_id,
-                    fechaDesbloqueo = @fechaDesbloqueo,
+            var sql = @"UPDATE logros_usuario SET
+                    user_id = @Id_Usuario,
+                    logro_id = @Id_Logro,
+                    fechaDesbloqueo = @Fecha_Obtencion
                 WHERE id = @id";
 
             var result = await db.ExecuteAsync(sql, logros_Usuario);
