@@ -1,6 +1,7 @@
 ﻿using DorjaData;
 using DorjaData.Repositories;
 using DorjaModelado.Repositories;
+using BACK;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -21,8 +22,8 @@ builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen();
 
 
-// REGISTRAR CONFIGURACIÓN MYSQL
-builder.Services.AddSingleton(new MySQLConfiguration(
+// REGISTRAR CONFIGURACIÓN SQLITE
+builder.Services.AddSingleton(new SQLiteConfiguration(
     builder.Configuration.GetConnectionString("DorjaConnection")
 ));
 
@@ -36,6 +37,10 @@ builder.Services.AddScoped<IProgreso_ProblemaRepository, Progreso_ProblemaReposi
 builder.Services.AddScoped<ILogrosRepository, LogrosRepository>();
 builder.Services.AddScoped<ILogros_UsuarioRepository, Logros_UsuarioRepository>();
 builder.Services.AddScoped<ICertificadosRepository, CertificadoRepository>();
+
+// Initialize SQLite database
+var connectionString = builder.Configuration.GetConnectionString("DorjaConnection");
+DatabaseInitializer.InitializeDatabase(connectionString);
 
 var app = builder.Build();
 

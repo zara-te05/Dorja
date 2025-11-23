@@ -1,0 +1,49 @@
+{
+  "name": "dorja-desktop",
+  "version": "1.0.0",
+  "description": "Dorja Educational Platform Desktop Application",
+  "main": "main.js",
+  "scripts": {
+    "start": "electron .",
+    "dev": "electron . --dev",
+    "build": "electron-builder"
+  },
+  "keywords": [
+    "education",
+    "learning",
+    "desktop"
+  ],
+  "author": "",
+  "license": "MIT",
+  "devDependencies": {
+    "electron": "^28.0.0",
+    "electron-builder": "^24.9.1"
+  },
+  "build": {
+    "appId": "com.dorja.app",
+    "productName": "Dorja",
+    "directories": {
+      "output": "dist"
+    },
+    "files": [
+      "main.js",
+      "PROYECT/FRONT/wwwroot/**/*",
+      "PROYECT/BACK/bin/**/*",
+      "PROYECT/BACK/*.dll",
+      "PROYECT/BACK/*.json"
+    ],
+    "win": {
+      "target": "nsis",
+      "icon": "assets/icon.ico"
+    },
+    "mac": {
+      "target": "dmg",
+      "icon": "assets/icon.icns"
+    },
+    "linux": {
+      "target": "AppImage",
+      "icon": "assets/icon.png"
+    }
+  }
+}
+

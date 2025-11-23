@@ -1,5 +1,5 @@
 ﻿using DorjaModelado;
-using MySql.Data.MySqlClient;
+using Microsoft.Data.Sqlite;
 using Dapper;
 using System;
 using System.Collections.Generic;
@@ -9,16 +9,16 @@ namespace DorjaData.Repositories
 {
     public class ProblemaRepository : IProblemaRepository
     {
-        private readonly MySQLConfiguration _connectionString;
+        private readonly SQLiteConfiguration _connectionString;
 
-        public ProblemaRepository(MySQLConfiguration connectionString)
+        public ProblemaRepository(SQLiteConfiguration connectionString)
         {
             _connectionString = connectionString;
         }
 
-        protected MySqlConnection dbConnection()
+        protected SqliteConnection dbConnection()
         {
-            return new MySqlConnection(_connectionString.ConnectionString);
+            return new SqliteConnection(_connectionString.ConnectionString);
         }
 
         // Obtener todos los problemas

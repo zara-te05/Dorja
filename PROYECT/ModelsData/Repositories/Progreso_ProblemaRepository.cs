@@ -1,4 +1,7 @@
 ﻿using DorjaModelado;
+using DorjaData;
+using Microsoft.Data.Sqlite;
+using Dapper;
 using System;
 using System.Collections.Generic;
 using System.Threading.Tasks;
@@ -7,29 +10,65 @@ namespace DorjaData.Repositories
 {
     public class Progreso_ProblemaRepository : IProgreso_ProblemaRepository
     {
-        public Task<IEnumerable<Progreso_Problema>> GetAllProgreso_Problemas()
+        private readonly SQLiteConfiguration _connectionString;
+
+        public Progreso_ProblemaRepository(SQLiteConfiguration connectionString)
         {
-            throw new NotImplementedException();
+            _connectionString = connectionString;
         }
 
-        public Task<Progreso_Problema> GetDetails(int id)
+        protected SqliteConnection dbConnection()
         {
-            throw new NotImplementedException();
+            return new SqliteConnection(_connectionString.ConnectionString);
         }
 
-        public Task<bool> InsertProgreso_Problemas(Progreso_Problema progreso_problema)
+        public async Task<IEnumerable<Progreso_Problema>> GetAllProgreso_Problemas()
         {
-            throw new NotImplementedException();
+            var db = dbConnection();
+            var sql = "SELECT * FROM progreso_problema";
+            return await db.QueryAsync<Progreso_Problema>(sql);
         }
 
-        public Task<bool> UpdateProgreso_Problemas(Progreso_Problema progreso_problema)
+        public async Task<Progreso_Problema> GetDetails(int id)
         {
-            throw new NotImplementedException();
+            var db = dbConnection();
+            var sql = "SELECT * FROM progreso_problema WHERE id = @Id";
+            return await db.QueryFirstOrDefaultAsync<Progreso_Problema>(sql, new { Id = id });
         }
 
-        public Task<bool> DeleteProgreso_Problemas(int id)
+        public async Task<bool> InsertProgreso_Problemas(Progreso_Problema progreso_problema)
         {
-            throw new NotImplementedException();
+            var db = dbConnection();
+            var sql = @"INSERT INTO progreso_problema 
+                        (user_id, problema_id, completado, puntuacion, intentos, ultimo_codigo, fecha_completado) 
+                        VALUES 
+                        (@UserId, @ProblemaId, @Completado, @Puntuacion, @Intentos, @UltimoCodigo, @FechaCompletado)";
+            var result = await db.ExecuteAsync(sql, progreso_problema);
+            return result > 0;
+        }
+
+        public async Task<bool> UpdateProgreso_Problemas(Progreso_Problema progreso_problema)
+        {
+            var db = dbConnection();
+            var sql = @"UPDATE progreso_problema SET
+                            user_id = @UserId,
+                            problema_id = @ProblemaId,
+                            completado = @Completado,
+                            puntuacion = @Puntuacion,
+                            intentos = @Intentos,
+                            ultimo_codigo = @UltimoCodigo,
+                            fecha_completado = @FechaCompletado
+                        WHERE id = @Id";
+            var result = await db.ExecuteAsync(sql, progreso_problema);
+            return result > 0;
+        }
+
+        public async Task<bool> DeleteProgreso_Problemas(int id)
+        {
+            var db = dbConnection();
+            var sql = "DELETE FROM progreso_problema WHERE id = @Id";
+            var result = await db.ExecuteAsync(sql, new { Id = id });
+            return result > 0;
         }
     }
 }
