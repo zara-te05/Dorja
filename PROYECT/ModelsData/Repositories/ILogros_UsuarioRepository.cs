@@ -12,5 +12,7 @@ namespace DorjaData.Repositories
         Task<bool> InsertLogrosUsuario(Logros_Usuario logros_Usuario);
         Task<bool> UpdateLogrosUsuario(Logros_Usuario logros_Usuario);
         Task<bool> DeleteLogrosUsuario(Logros_Usuario logros_Usuario);
+        Task<IEnumerable<Logros_Usuario>> GetLogrosByUserId(int userId);
+        Task<bool> UserHasLogro(int userId, int logroId);
     }
 }

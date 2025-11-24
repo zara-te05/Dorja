@@ -63,5 +63,16 @@ namespace BACK.Controllers
             await _logrosRepository.DeleteLogros(new Logros { Id = id });
             return NoContent();
         }
+
+        [HttpGet("by-name/{nombre}")]
+        public async Task<IActionResult> GetLogroByNombre(string nombre)
+        {
+            var logro = await _logrosRepository.GetLogroByNombre(nombre);
+            if (logro == null)
+            {
+                return NotFound(new { message = "Logro no encontrado" });
+            }
+            return Ok(logro);
+        }
     }
 }

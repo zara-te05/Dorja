@@ -73,5 +73,23 @@ namespace DorjaData.Repositories
             var result = await db.ExecuteAsync(sql, logros_Usuario);
             return result > 0; // true si actualizó
         }
+
+        public async Task<IEnumerable<Logros_Usuario>> GetLogrosByUserId(int userId)
+        {
+            var db = dbConnection();
+            var sql = @"SELECT id, user_id as Id_Usuario, logro_id as Id_Logro, fechaDesbloqueo as Fecha_Obtencion
+                        FROM logros_usuario
+                        WHERE user_id = @userId";
+            return await db.QueryAsync<Logros_Usuario>(sql, new { userId });
+        }
+
+        public async Task<bool> UserHasLogro(int userId, int logroId)
+        {
+            var db = dbConnection();
+            var sql = @"SELECT COUNT(*) FROM logros_usuario 
+                        WHERE user_id = @userId AND logro_id = @logroId";
+            var count = await db.QueryFirstOrDefaultAsync<int>(sql, new { userId, logroId });
+            return count > 0;
+        }
     }
 }

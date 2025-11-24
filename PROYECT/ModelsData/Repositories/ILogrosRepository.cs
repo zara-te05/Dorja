@@ -12,5 +12,6 @@ namespace DorjaData.Repositories
         Task<bool> InsertLogros(Logros logros);
         Task<bool> UpdateLogros(Logros logros);
         Task<bool> DeleteLogros(Logros logros);
+        Task<Logros> GetLogroByNombre(string nombre);
     }
 }

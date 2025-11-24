@@ -21,22 +21,24 @@ class CurriculumManager {
         console.log('✅ CurriculumManager iniciado para usuario:', userId);
     }
 
-    async cargarTemas() {
+    async cargarTemas(nivelId = null) {
         try {
-            console.log('🔄 Solicitando temas...');
+            console.log('🔄 Solicitando temas...', nivelId ? `para nivel ${nivelId}` : '');
             
             if (this.useMockData) {
                 console.log('📚 Usando datos de prueba para temas');
-                return await this.getMockTemas();
+                return await this.getMockTemas(nivelId);
             }
 
-            const temas = await this.api.cargarTemas(this.currentUser);
+            const temas = await this.api.cargarTemas(this.currentUser, nivelId);
             console.log('📚 Temas recibidos:', temas);
-            return temas;
+            
+            // Asegurar que los temas estén ordenados por orden
+            return temas.sort((a, b) => (a.orden || a.Orden || 0) - (b.orden || b.Orden || 0));
         } catch (error) {
             console.error('❌ Error cargando temas:', error);
             console.log('📚 Usando datos de prueba debido al error');
-            return await this.getMockTemas();
+            return await this.getMockTemas(nivelId);
         }
     }
 
@@ -97,36 +99,84 @@ class CurriculumManager {
     }
 
     // Datos de prueba para desarrollo
-    async getMockTemas() {
-        return [
+    async getMockTemas(nivelId = null) {
+        const todosLosTemas = [
             {
                 id: 1,
+                IdTemas: 1,
                 titulo: "Variables en Python",
                 descripcion: "Aprende los fundamentos de las variables",
                 orden: 1,
+                IdNivel: 1,
                 locked: 0,
                 total_problemas: 3,
                 problemas_completados: 0
             },
             {
                 id: 2,
+                IdTemas: 2,
                 titulo: "Condicionales",
                 descripcion: "Estructuras if, else, elif",
                 orden: 2,
+                IdNivel: 1,
                 locked: 1,
                 total_problemas: 0,
                 problemas_completados: 0
             },
             {
                 id: 3,
+                IdTemas: 3,
                 titulo: "Bucles",
                 descripcion: "For y while loops",
                 orden: 3,
+                IdNivel: 1,
+                locked: 1,
+                total_problemas: 0,
+                problemas_completados: 0
+            },
+            {
+                id: 4,
+                IdTemas: 4,
+                titulo: "Funciones Básicas",
+                descripcion: "Aprende a crear y usar funciones",
+                orden: 1,
+                IdNivel: 2,
+                locked: 1,
+                total_problemas: 0,
+                problemas_completados: 0
+            },
+            {
+                id: 5,
+                IdTemas: 5,
+                titulo: "Listas y Diccionarios",
+                descripcion: "Estructuras de datos básicas",
+                orden: 2,
+                IdNivel: 2,
+                locked: 1,
+                total_problemas: 0,
+                problemas_completados: 0
+            },
+            {
+                id: 6,
+                IdTemas: 6,
+                titulo: "Programación Orientada a Objetos",
+                descripcion: "Clases y objetos",
+                orden: 1,
+                IdNivel: 3,
                 locked: 1,
                 total_problemas: 0,
                 problemas_completados: 0
             }
         ];
+        
+        // Filtrar por nivel si se especifica
+        if (nivelId !== null && nivelId !== undefined) {
+            return todosLosTemas.filter(t => 
+                (t.IdNivel === nivelId || t.idNivel === nivelId || t.nivel_id === nivelId || t.nivelId === nivelId)
+            );
+        }
+        
+        return todosLosTemas;
     }
 
     async getMockProblemas(temaId) {

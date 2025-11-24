@@ -132,6 +132,15 @@ document.addEventListener('DOMContentLoaded', () => {
             const result = await window.api.signup(formData);
 
             if (result.success) {
+                // Check if achievement was granted
+                if (result.achievementGranted && result.userId) {
+                    // Store achievement info to show popup after login
+                    sessionStorage.setItem('pendingAchievement', JSON.stringify({
+                        nombre: 'Crear cuenta',
+                        descripcion: 'Has creado tu cuenta en Dorja. ¡Bienvenido!',
+                        icono: 'fa-user-plus'
+                    }));
+                }
                 alert('¡Registro exitoso! Ahora puedes iniciar sesión.');
                 window.location.href = 'login.html';
             } else {

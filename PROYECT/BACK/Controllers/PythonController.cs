@@ -1,6 +1,7 @@
 using Microsoft.AspNetCore.Mvc;
 using System.Diagnostics;
 using System.Text;
+using DorjaData.Repositories;
 
 namespace BACK.Controllers
 {
@@ -8,6 +9,15 @@ namespace BACK.Controllers
     [ApiController]
     public class CodeExecutionController : ControllerBase
     {
+        private readonly ILogrosRepository _logrosRepository;
+        private readonly ILogros_UsuarioRepository _logrosUsuarioRepository;
+
+        public CodeExecutionController(ILogrosRepository logrosRepository, ILogros_UsuarioRepository logrosUsuarioRepository)
+        {
+            _logrosRepository = logrosRepository;
+            _logrosUsuarioRepository = logrosUsuarioRepository;
+        }
+
         [HttpPost("execute")]
         public async Task<IActionResult> ExecuteCode([FromBody] CodeExecuteRequest request)
         {
@@ -164,11 +174,19 @@ namespace BACK.Controllers
                             ? "(Sin salida)"
                             : (outputText + (string.IsNullOrWhiteSpace(errorText) ? "" : "\n" + CleanErrorMessage(errorText, tempFile)));
 
+                        // Grant "Tu primer código" achievement if user provided and code executed successfully
+                        bool achievementGranted = false;
+                        if (request.UserId.HasValue && string.IsNullOrWhiteSpace(errorText) && process.ExitCode == 0)
+                        {
+                            achievementGranted = await GrantLogroIfNotExists(request.UserId.Value, "Tu primer código");
+                        }
+
                         return Ok(new
                         {
                             success = string.IsNullOrWhiteSpace(errorText) && process.ExitCode == 0,
                             output = finalOutput,
-                            exitCode = process.ExitCode
+                            exitCode = process.ExitCode,
+                            achievementGranted = achievementGranted
                         });
                     }
                 }
@@ -225,12 +243,50 @@ namespace BACK.Controllers
 
             return cleaned.Trim();
         }
+
+        private async Task<bool> GrantLogroIfNotExists(int userId, string logroNombre)
+        {
+            try
+            {
+                // Get logro by name
+                var logro = await _logrosRepository.GetLogroByNombre(logroNombre);
+                if (logro == null)
+                {
+                    Console.WriteLine($"Logro '{logroNombre}' no encontrado");
+                    return false;
+                }
+
+                // Check if user already has this logro
+                var hasLogro = await _logrosUsuarioRepository.UserHasLogro(userId, logro.Id);
+                if (hasLogro)
+                {
+                    return false; // Already has it
+                }
+
+                // Grant the logro
+                var logroUsuario = new Logros_Usuario
+                {
+                    Id_Usuario = userId,
+                    Id_Logro = logro.Id,
+                    Fecha_Obtencion = DateTime.Now
+                };
+
+                var created = await _logrosUsuarioRepository.InsertLogrosUsuario(logroUsuario);
+                return created;
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"Error granting logro '{logroNombre}' to user {userId}: {ex.Message}");
+                return false;
+            }
+        }
     }
 
     public class CodeExecuteRequest
     {
         public string Code { get; set; } = string.Empty;
         public string Language { get; set; } = "python";
+        public int? UserId { get; set; }
     }
 }
 

@@ -2,6 +2,7 @@
 using DorjaData.Repositories;
 using DorjaModelado.Repositories;
 using BACK;
+using Microsoft.Extensions.FileProviders;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -55,7 +56,21 @@ if (app.Environment.IsDevelopment())
 //app.UseHttpsRedirection();
 
 // Enable static files for uploaded images
-app.UseStaticFiles();
+// Ensure wwwroot directory exists
+var wwwrootPath = Path.Combine(Directory.GetCurrentDirectory(), "wwwroot");
+if (!Directory.Exists(wwwrootPath))
+{
+    Directory.CreateDirectory(wwwrootPath);
+}
+
+// Configure static files with explicit options
+var staticFileOptions = new StaticFileOptions
+{
+    FileProvider = new Microsoft.Extensions.FileProviders.PhysicalFileProvider(wwwrootPath),
+    RequestPath = ""
+};
+
+app.UseStaticFiles(staticFileOptions);
 
 app.UseAuthorization();
 

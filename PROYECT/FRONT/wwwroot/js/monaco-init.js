@@ -100,6 +100,10 @@ public class Program
             formatOnType: true
         });
 
+        // Asignar el editor a window para que esté disponible globalmente
+        window.monacoEditor = editor;
+        window.currentLanguage = currentLanguage;
+
         const outputContent = document.getElementById('output-content');
         const runBtn = document.getElementById('run-btn');
         const verifyBtn = document.getElementById('verify-btn');
@@ -116,6 +120,7 @@ public class Program
             }
             
             currentLanguage = newLanguage;
+            window.currentLanguage = newLanguage;
             const monacoLanguage = newLanguage === 'csharp' ? 'csharp' : 'python';
             const defaultCode = newLanguage === 'csharp' ? csharpDefaultCode : pythonDefaultCode;
             
@@ -123,23 +128,8 @@ public class Program
             editor.setValue(defaultCode);
         });
 
-        runBtn.addEventListener('click', async () => {
-            const code = editor.getValue();
-            outputContent.textContent = "Ejecutando...";
-            verifyBtn.disabled = true;
-            runBtn.disabled = true;
-            try {
-                const result = await window.api.executeCode(code, currentLanguage);
-                outputContent.textContent = result.output || result.message || 'Error desconocido';
-                if (result.success) {
-                    verifyBtn.disabled = false;
-                }
-            } catch (error) {
-                outputContent.textContent = `Error de comunicación:\n${error.message || error}`;
-            } finally {
-                runBtn.disabled = false;
-            }
-        });
+        // El botón run-btn será manejado por problems-renderer.js
+        // Solo configuramos el editor aquí
         
         const observer = new MutationObserver(() => { monaco.editor.setTheme(getCurrentTheme()); });
         observer.observe(document.documentElement, { attributes: true, attributeFilter: ['class'] });

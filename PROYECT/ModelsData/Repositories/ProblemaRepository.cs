@@ -25,7 +25,10 @@ namespace DorjaData.Repositories
         public async Task<IEnumerable<Problema>> GetAllProblemas()
         {
             var db = dbConnection();
-            var sql = "SELECT * FROM problemas";
+            var sql = @"SELECT id as Id, tema_id as TemaId, titulo as Titulo, descripcion as Descripcion, 
+                       ejemplo as Ejemplo, dificultad as Dificultad, codigo_inicial as CodigoInicial, 
+                       solucion as Solucion, orden as Orden, locked as Locked, puntos_otorgados as PuntosOtorgados 
+                       FROM problemas";
             return await db.QueryAsync<Problema>(sql);
         }
 
@@ -33,7 +36,10 @@ namespace DorjaData.Repositories
         public async Task<Problema> GetDetails(int id)
         {
             var db = dbConnection();
-            var sql = "SELECT * FROM problemas WHERE id = @Id";
+            var sql = @"SELECT id as Id, tema_id as TemaId, titulo as Titulo, descripcion as Descripcion, 
+                       ejemplo as Ejemplo, dificultad as Dificultad, codigo_inicial as CodigoInicial, 
+                       solucion as Solucion, orden as Orden, locked as Locked, puntos_otorgados as PuntosOtorgados 
+                       FROM problemas WHERE id = @Id";
             return await db.QueryFirstOrDefaultAsync<Problema>(sql, new { Id = id });
         }
 

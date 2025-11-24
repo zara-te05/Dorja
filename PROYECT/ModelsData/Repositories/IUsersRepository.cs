@@ -13,5 +13,7 @@ namespace DorjaModelado.Repositories
         Task<bool> DeleteUsuarios(Users usuario);
         Task<Users?> GetByEmail(string email);
         Task<Users?> GetByUsername(string username);
+        Task<bool> UpdatePhotoBlob(int userId, string imageType, byte[] imageData);
+        Task<byte[]?> GetPhotoBlob(int userId, string imageType);
     }
 }

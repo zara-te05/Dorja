@@ -1,7 +1,45 @@
+// Helper function to set profile image
+function setProfileImage(imgElement, user) {
+    if (!imgElement || !user) return;
+    
+    const initial = user.username ? user.username.charAt(0).toUpperCase() : 'U';
+    
+    if (user.profilePhotoPath && user.profilePhotoPath.trim() !== '') {
+        // Use backend URL for images
+        imgElement.src = `http://localhost:5222${user.profilePhotoPath}`;
+        imgElement.onerror = () => {
+            // If image fails, show initial as text
+            const container = imgElement.parentElement;
+            if (container) {
+                imgElement.style.display = 'none';
+                const initialSpan = document.createElement('span');
+                initialSpan.className = 'text-white text-lg font-bold';
+                initialSpan.textContent = initial;
+                container.appendChild(initialSpan);
+            }
+        };
+    } else {
+        // Show initial as text instead of placeholder
+        imgElement.style.display = 'none';
+        const container = imgElement.parentElement;
+        if (container) {
+            const initialSpan = document.createElement('span');
+            initialSpan.className = 'text-white text-lg font-bold';
+            initialSpan.textContent = initial;
+            container.appendChild(initialSpan);
+        }
+    }
+    imgElement.alt = `Avatar de ${user.username || 'Usuario'}`;
+}
+
 async function initializeHomePage() {
     const userId = sessionStorage.getItem('userId');
     const usernameDisplay = document.getElementById('username-display');
-    const userAvatar = document.querySelector('#user-menu-button img'); 
+    const userAvatar = document.querySelector('#user-menu-button img');
+    // Try multiple selectors for hero profile image
+    const heroProfileImage = document.querySelector('main section img[alt="Foto de perfil"]') || 
+                             document.querySelector('main .lg\\:col-span-2 img') ||
+                             document.querySelector('main section img');
 
     if (!userId) {
         window.location.href = 'login.html';
@@ -15,16 +53,59 @@ async function initializeHomePage() {
             if (usernameDisplay) {
                 usernameDisplay.textContent = user.username;
             }
+            
+            // Set avatar in dropdown menu
             if (userAvatar) {
-                const initial = user.username.charAt(0).toUpperCase();
-                userAvatar.src = `https://via.placeholder.com/150/a0aec0/ffffff?text=${initial}`;
-                userAvatar.alt = `Avatar de ${user.username}`;
+                setProfileImage(userAvatar, user);
+            }
+            
+            // Set profile image in hero section (the large image)
+            const heroImageContainer = document.querySelector('main .lg\\:col-span-2 div img[alt="Foto de perfil"]')?.parentElement ||
+                                      document.querySelector('main section div img[alt="Foto de perfil"]')?.parentElement;
+            const heroImg = heroImageContainer?.querySelector('img[alt="Foto de perfil"]');
+            
+            if (heroImg) {
+                const initial = user.username ? user.username.charAt(0).toUpperCase() : 'U';
+                
+                if (user.profilePhotoPath && user.profilePhotoPath.trim() !== '') {
+                    heroImg.src = `http://localhost:5222${user.profilePhotoPath}`;
+                    heroImg.onerror = () => {
+                        heroImg.style.display = 'none';
+                        if (heroImageContainer) {
+                            const span = document.createElement('span');
+                            span.className = 'text-white text-4xl font-bold';
+                            span.textContent = initial;
+                            heroImageContainer.appendChild(span);
+                        }
+                    };
+                } else {
+                    heroImg.style.display = 'none';
+                    if (heroImageContainer) {
+                        const span = document.createElement('span');
+                        span.className = 'text-white text-4xl font-bold';
+                        span.textContent = initial;
+                        heroImageContainer.appendChild(span);
+                    }
+                }
             }
             
             // Load progress and lobby data
             await loadProgressData(userId, user);
             await loadUpcomingLevel(userId, user);
-            await loadSyllabus();
+            await loadHomeAchievements(userId);
+            // Syllabus removed from home.html, so we don't load it anymore
+            
+            // Check for pending achievement from signup
+            const pendingAchievement = sessionStorage.getItem('pendingAchievement');
+            if (pendingAchievement) {
+                try {
+                    const achievement = JSON.parse(pendingAchievement);
+                    await showAchievementPopup(achievement.nombre, achievement.descripcion, achievement.icono);
+                    sessionStorage.removeItem('pendingAchievement');
+                } catch (e) {
+                    console.error('Error showing pending achievement:', e);
+                }
+            }
         } else {
             sessionStorage.removeItem('userId');
             window.location.href = 'login.html';
@@ -36,31 +117,69 @@ async function initializeHomePage() {
 
 async function loadProgressData(userId, user) {
     try {
-        const totalPoints = user.puntosTotales || 0;
-        const currentLevel = user.nivelActual || 1;
+        // These elements might not exist in the current HTML, so we check first
+        const totalPointsEl = document.getElementById('total-points');
+        const currentLevelEl = document.getElementById('current-level');
+        const progressBarEl = document.getElementById('progress-bar');
+        const progressTextEl = document.getElementById('progress-text');
         
-        document.getElementById('total-points').textContent = totalPoints;
-        document.getElementById('current-level').textContent = currentLevel;
-        
-        // Calculate progress percentage (simplified - you can enhance this)
-        const progressPercentage = Math.min((totalPoints % 1000) / 10, 100);
-        document.getElementById('progress-bar').style.width = `${progressPercentage}%`;
-        document.getElementById('progress-text').textContent = `${Math.round(progressPercentage)}% completado`;
+        if (totalPointsEl || currentLevelEl || progressBarEl || progressTextEl) {
+            const totalPoints = user.puntosTotales || 0;
+            const currentLevel = user.nivelActual || 1;
+            
+            if (totalPointsEl) totalPointsEl.textContent = totalPoints;
+            if (currentLevelEl) currentLevelEl.textContent = currentLevel;
+            
+            // Calculate progress percentage (simplified - you can enhance this)
+            if (progressBarEl || progressTextEl) {
+                const progressPercentage = Math.min((totalPoints % 1000) / 10, 100);
+                if (progressBarEl) progressBarEl.style.width = `${progressPercentage}%`;
+                if (progressTextEl) progressTextEl.textContent = `${Math.round(progressPercentage)}% completado`;
+            }
+        }
     } catch (error) {
         console.error("Error loading progress:", error);
     }
 }
 
+async function loadHomeAchievements(userId) {
+    try {
+        const achievements = await loadUserAchievements(userId);
+        const container = document.getElementById('achievements-grid');
+        if (container) {
+            if (achievements.length === 0) {
+                container.innerHTML = `
+                    <div class="text-center py-8 text-gray-500 dark:text-gray-400 col-span-full">
+                        <i class="fas fa-trophy text-4xl mb-4 opacity-50"></i>
+                        <p>No has obtenido logros aún. ¡Completa acciones para desbloquearlos!</p>
+                    </div>
+                `;
+            } else {
+                // Show only the 4 most recent achievements
+                const recentAchievements = achievements.slice(-4).reverse();
+                renderAchievements(recentAchievements, container);
+            }
+        }
+    } catch (error) {
+        console.error('Error loading home achievements:', error);
+        const container = document.getElementById('achievements-grid');
+        if (container) {
+            container.innerHTML = '<p class="text-red-500 col-span-full text-center">Error al cargar los logros</p>';
+        }
+    }
+}
+
 async function loadUpcomingLevel(userId, user) {
     try {
+        const upcomingLevelDiv = document.getElementById('upcoming-level');
+        if (!upcomingLevelDiv) return; // Element doesn't exist in current HTML
+        
         const niveles = await window.api.getAllNiveles();
         const currentLevel = user.nivelActual || 1;
         
         // Find next level
         const sortedNiveles = Array.isArray(niveles) ? niveles.sort((a, b) => (a.orden || 0) - (b.orden || 0)) : [];
         const nextLevel = sortedNiveles.find(n => (n.orden || n.IdNiveles || 0) > currentLevel) || sortedNiveles[0];
-        
-        const upcomingLevelDiv = document.getElementById('upcoming-level');
         
         if (nextLevel) {
             upcomingLevelDiv.innerHTML = `
@@ -84,23 +203,27 @@ async function loadUpcomingLevel(userId, user) {
         }
     } catch (error) {
         console.error("Error loading upcoming level:", error);
-        document.getElementById('upcoming-level').innerHTML = `
-            <div class="text-center py-8">
-                <p class="text-red-500">Error al cargar el próximo nivel</p>
-            </div>
-        `;
+        const upcomingLevelDiv = document.getElementById('upcoming-level');
+        if (upcomingLevelDiv) {
+            upcomingLevelDiv.innerHTML = `
+                <div class="text-center py-8">
+                    <p class="text-red-500">Error al cargar el próximo nivel</p>
+                </div>
+            `;
+        }
     }
 }
 
 async function loadSyllabus() {
     try {
+        const syllabusContent = document.getElementById('syllabus-content');
+        if (!syllabusContent) return; // Element doesn't exist
+        
         const niveles = await window.api.getAllNiveles();
         const temas = await window.api.getAllTemas();
         
         const sortedNiveles = Array.isArray(niveles) ? niveles.sort((a, b) => (a.orden || 0) - (b.orden || 0)) : [];
         const sortedTemas = Array.isArray(temas) ? temas.sort((a, b) => (a.orden || 0) - (b.orden || 0)) : [];
-        
-        const syllabusContent = document.getElementById('syllabus-content');
         
         if (sortedNiveles.length === 0) {
             syllabusContent.innerHTML = '<p class="text-gray-500 dark:text-gray-400 text-center py-8">No hay niveles disponibles</p>';
@@ -135,34 +258,16 @@ async function loadSyllabus() {
         syllabusContent.innerHTML = html;
     } catch (error) {
         console.error("Error loading syllabus:", error);
-        document.getElementById('syllabus-content').innerHTML = `
-            <p class="text-red-500 text-center py-8">Error al cargar el sílabo</p>
-        `;
+        const syllabusContent = document.getElementById('syllabus-content');
+        if (syllabusContent) {
+            syllabusContent.innerHTML = `
+                <p class="text-red-500 text-center py-8">Error al cargar el sílabo</p>
+            `;
+        }
     }
 }
 
-// Toggle syllabus visibility
-document.addEventListener('DOMContentLoaded', () => {
-    const viewSyllabusBtn = document.getElementById('view-syllabus-btn');
-    const closeSyllabusBtn = document.getElementById('close-syllabus-btn');
-    const syllabusSection = document.getElementById('syllabus-section');
-    
-    if (viewSyllabusBtn) {
-        viewSyllabusBtn.addEventListener('click', () => {
-            if (syllabusSection) {
-                syllabusSection.classList.remove('hidden');
-                syllabusSection.scrollIntoView({ behavior: 'smooth' });
-            }
-        });
-    }
-    
-    if (closeSyllabusBtn) {
-        closeSyllabusBtn.addEventListener('click', () => {
-            if (syllabusSection) {
-                syllabusSection.classList.add('hidden');
-            }
-        });
-    }
+// Initialize everything when DOM is ready
+window.addEventListener('DOMContentLoaded', () => {
+    initializeHomePage();
 });
-
-window.addEventListener('DOMContentLoaded', initializeHomePage);

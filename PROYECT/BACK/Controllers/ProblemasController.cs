@@ -31,7 +31,7 @@ namespace BACK.Controllers
         }
 
         [HttpPost]
-        public async Task<IActionResult> CreateTemas([FromBody] Problema problema)
+        public async Task<IActionResult> CreateProblema([FromBody] Problema problema)
         {
             if(problema == null)
             {
@@ -42,8 +42,12 @@ namespace BACK.Controllers
                 return BadRequest(ModelState);
             }
 
-            var createdProblema = await _problemaRepository.UpdateProblemas(problema);
-            return Created("created", createdProblema); 
+            var created = await _problemaRepository.InsertProblemas(problema);
+            if (!created)
+            {
+                return StatusCode(500, new { message = "Error al crear el problema" });
+            }
+            return Created("created", problema); 
         }
 
         [HttpPut]

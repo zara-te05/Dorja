@@ -9,7 +9,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const displayError = (message) => {
         if (errorMessageElement && errorContainer) {
             errorMessageElement.textContent = message;
-            errorContainer.classList.remove('opacity-0');
+            errorContainer.classList.remove('hidden');
         } else {
             // Fallback si no existe el contenedor de errores
             alert(message);
@@ -19,7 +19,7 @@ document.addEventListener('DOMContentLoaded', () => {
     // Función para ocultar errores
     const hideError = () => {
         if (errorContainer) {
-            errorContainer.classList.add('opacity-0');
+            errorContainer.classList.add('hidden');
         }
     };
 

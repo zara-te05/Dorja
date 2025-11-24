@@ -11,6 +11,12 @@ document.addEventListener('DOMContentLoaded', () => {
         userMenuButton.addEventListener('click', (event) => {
             event.stopPropagation(); 
             toggleMenu();
+            
+            // Close notifications menu if it's open
+            const notificationsMenu = document.getElementById('notifications-menu');
+            if (notificationsMenu && !notificationsMenu.classList.contains('hidden')) {
+                notificationsMenu.classList.add('hidden');
+            }
         });
     }
 
@@ -25,7 +31,9 @@ document.addEventListener('DOMContentLoaded', () => {
     if (logoutButton) {
         logoutButton.addEventListener('click', (event) => {
             event.preventDefault(); 
-            sessionStorage.removeItem('username');
+            // Limpiar toda la sesión
+            sessionStorage.clear();
+            localStorage.removeItem('theme'); // Opcional: mantener el tema
             window.location.href = 'login.html';
         });
     }

@@ -2,6 +2,7 @@
 using Microsoft.AspNetCore.Mvc;
 using DorjaModelado.Repositories;
 using DorjaModelado;
+using DorjaData.Repositories;
 using System.Text;
 
 
@@ -12,10 +13,14 @@ namespace BACK.Controllers
     public class UsersController : ControllerBase
     {
         private readonly IUserRepository _usersRepository;
+        private readonly ILogrosRepository _logrosRepository;
+        private readonly ILogros_UsuarioRepository _logrosUsuarioRepository;
 
-        public UsersController(IUserRepository usersRepository)
+        public UsersController(IUserRepository usersRepository, ILogrosRepository logrosRepository, ILogros_UsuarioRepository logrosUsuarioRepository)
         {
             _usersRepository = usersRepository;
+            _logrosRepository = logrosRepository;
+            _logrosUsuarioRepository = logrosUsuarioRepository;
         }
 
         [HttpGet]
@@ -54,14 +59,49 @@ namespace BACK.Controllers
         {
             if (usuario == null)
             {
-                return BadRequest();
+                return BadRequest(new { message = "Datos inválidos" });
             }
             if (!ModelState.IsValid)
             {
                 return BadRequest(ModelState);
             }
-            var updated = await _usersRepository.UpdateUsuarios(usuario);
-            return Ok(updated);
+
+            // Get current user data from database to preserve fields not being updated
+            var currentUser = await _usersRepository.GetDetails(usuario.Id);
+            if (currentUser == null)
+            {
+                return NotFound(new { message = "Usuario no encontrado" });
+            }
+
+            // Merge: use provided values, fall back to current database values
+            // This ensures we don't lose data like photo paths, password, etc.
+            var userToUpdate = new Users
+            {
+                Id = usuario.Id,
+                Username = !string.IsNullOrWhiteSpace(usuario.Username) ? usuario.Username : currentUser.Username,
+                Email = !string.IsNullOrWhiteSpace(usuario.Email) ? usuario.Email : currentUser.Email,
+                Nombre = !string.IsNullOrWhiteSpace(usuario.Nombre) ? usuario.Nombre : currentUser.Nombre,
+                ApellidoPaterno = !string.IsNullOrWhiteSpace(usuario.ApellidoPaterno) ? usuario.ApellidoPaterno : currentUser.ApellidoPaterno,
+                ApellidoMaterno = !string.IsNullOrWhiteSpace(usuario.ApellidoMaterno) ? usuario.ApellidoMaterno : currentUser.ApellidoMaterno,
+                Password = !string.IsNullOrWhiteSpace(usuario.Password) ? usuario.Password : currentUser.Password,
+                FechaRegistro = usuario.FechaRegistro != default ? usuario.FechaRegistro : currentUser.FechaRegistro,
+                UltimaConexion = usuario.UltimaConexion ?? currentUser.UltimaConexion,
+                PuntosTotales = usuario.PuntosTotales != default ? usuario.PuntosTotales : currentUser.PuntosTotales,
+                NivelActual = usuario.NivelActual != default ? usuario.NivelActual : currentUser.NivelActual,
+                // CRITICAL: Preserve photo paths from database unless explicitly provided
+                ProfilePhotoPath = !string.IsNullOrWhiteSpace(usuario.ProfilePhotoPath) ? usuario.ProfilePhotoPath : currentUser.ProfilePhotoPath,
+                CoverPhotoPath = !string.IsNullOrWhiteSpace(usuario.CoverPhotoPath) ? usuario.CoverPhotoPath : currentUser.CoverPhotoPath
+            };
+
+            var updated = await _usersRepository.UpdateUsuarios(userToUpdate);
+            if (!updated)
+            {
+                return StatusCode(500, new { message = "Error al actualizar el usuario" });
+            }
+            
+            // Return the updated user data
+            var updatedUser = await _usersRepository.GetDetails(usuario.Id);
+            return Ok(updatedUser);
         }
 
         [HttpDelete]
@@ -120,7 +160,20 @@ namespace BACK.Controllers
                 return StatusCode(500, new { message = "Error al registrar el usuario" });
             }
 
-            return Ok(new { message = "Usuario registrado correctamente" });
+            // Get the created user to get the ID
+            var createdUser = await _usersRepository.GetByEmail(users.Email);
+            
+            // Grant "Crear cuenta" achievement
+            if (createdUser != null)
+            {
+                await GrantLogroIfNotExists(createdUser.Id, "Crear cuenta");
+            }
+
+            return Ok(new { 
+                message = "Usuario registrado correctamente",
+                userId = createdUser?.Id,
+                achievementGranted = createdUser != null
+            });
         }
 
         // --------------------------  LOGIN  ----------------------------
@@ -225,6 +278,10 @@ namespace BACK.Controllers
                     return NotFound(new { message = "Usuario no encontrado" });
                 }
 
+                // Ensure photo paths are not null
+                if (user.ProfilePhotoPath == null) user.ProfilePhotoPath = string.Empty;
+                if (user.CoverPhotoPath == null) user.CoverPhotoPath = string.Empty;
+
                 // Create uploads directory if it doesn't exist
                 var uploadsDir = Path.Combine(Directory.GetCurrentDirectory(), "wwwroot", "uploads", "users", userId.ToString());
                 if (!Directory.Exists(uploadsDir))
@@ -243,28 +300,179 @@ namespace BACK.Controllers
                     await file.CopyToAsync(stream);
                 }
 
-                // Update user record
+                // Update user record - only update the path for the image type being uploaded
+                // The other photo path is already loaded from the database and will be preserved
                 if (imageType == "profile")
                 {
                     user.ProfilePhotoPath = relativePath;
+                    // CoverPhotoPath is already set from GetDetails, so it will be preserved
                 }
                 else
                 {
                     user.CoverPhotoPath = relativePath;
+                    // ProfilePhotoPath is already set from GetDetails, so it will be preserved
                 }
 
-                await _usersRepository.UpdateUsuarios(user);
+                // Log before update for debugging
+                Console.WriteLine($"Updating user {userId}: ProfilePhotoPath='{user.ProfilePhotoPath}', CoverPhotoPath='{user.CoverPhotoPath}'");
+
+                var updateResult = await _usersRepository.UpdateUsuarios(user);
+                
+                if (!updateResult)
+                {
+                    Console.WriteLine($"ERROR: Failed to update user {userId} in database");
+                    return StatusCode(500, new { message = "Error al actualizar el registro del usuario en la base de datos" });
+                }
+
+                // Verify the update by getting the user again
+                var updatedUser = await _usersRepository.GetDetails(userId);
+                var savedPath = imageType == "profile" ? updatedUser?.ProfilePhotoPath : updatedUser?.CoverPhotoPath;
+
+                // Log after update for debugging
+                Console.WriteLine($"After update - User {userId}: ProfilePhotoPath='{updatedUser?.ProfilePhotoPath}', CoverPhotoPath='{updatedUser?.CoverPhotoPath}'");
+                Console.WriteLine($"Saved path for {imageType}: '{savedPath}'");
+
+                if (string.IsNullOrEmpty(savedPath))
+                {
+                    Console.WriteLine($"WARNING: Path was not saved correctly for {imageType} image");
+                }
+
+                // Grant "Personalizar perfil" achievement if profile photo was uploaded
+                bool achievementGranted = false;
+                if (imageType == "profile" && !string.IsNullOrEmpty(savedPath))
+                {
+                    achievementGranted = await GrantLogroIfNotExists(userId, "Personalizar perfil");
+                }
 
                 return Ok(new
                 {
                     success = true,
                     message = "Imagen subida exitosamente",
-                    path = relativePath
+                    path = relativePath,
+                    savedPath = savedPath, // Return the saved path for verification
+                    achievementGranted = achievementGranted
                 });
             }
             catch (Exception ex)
             {
                 return StatusCode(500, new { message = $"Error al subir la imagen: {ex.Message}" });
+            }
+        }
+
+        // --------------------------  IMAGE UPLOAD AS BLOB (Database Storage)  ----------------------------
+
+        [HttpPost("{userId}/upload-image-blob")]
+        public async Task<IActionResult> UploadImageAsBlob(int userId, [FromForm] IFormFile file, [FromForm] string imageType)
+        {
+            if (file == null || file.Length == 0)
+            {
+                return BadRequest(new { message = "No se proporcionó ningún archivo" });
+            }
+
+            if (string.IsNullOrWhiteSpace(imageType) || (imageType != "profile" && imageType != "cover"))
+            {
+                return BadRequest(new { message = "Tipo de imagen inválido. Debe ser 'profile' o 'cover'" });
+            }
+
+            // Validate file type
+            var allowedExtensions = new[] { ".jpg", ".jpeg", ".png", ".gif" };
+            var fileExtension = Path.GetExtension(file.FileName).ToLowerInvariant();
+            if (!allowedExtensions.Contains(fileExtension))
+            {
+                return BadRequest(new { message = "Tipo de archivo no permitido. Solo se permiten imágenes (JPG, PNG, GIF)" });
+            }
+
+            // Validate file size (max 5MB)
+            if (file.Length > 5 * 1024 * 1024)
+            {
+                return BadRequest(new { message = "El archivo es demasiado grande. El tamaño máximo es 5MB" });
+            }
+
+            try
+            {
+                // Get user to verify existence
+                var user = await _usersRepository.GetDetails(userId);
+                if (user == null)
+                {
+                    return NotFound(new { message = "Usuario no encontrado" });
+                }
+
+                // Read image data into byte array
+                byte[] imageData;
+                using (var memoryStream = new MemoryStream())
+                {
+                    await file.CopyToAsync(memoryStream);
+                    imageData = memoryStream.ToArray();
+                }
+
+                // Save to database as BLOB
+                var updateResult = await _usersRepository.UpdatePhotoBlob(userId, imageType, imageData);
+                
+                if (!updateResult)
+                {
+                    return StatusCode(500, new { message = "Error al guardar la imagen en la base de datos" });
+                }
+
+                // Grant "Personalizar perfil" achievement if profile photo was uploaded
+                bool achievementGranted = false;
+                if (imageType == "profile")
+                {
+                    achievementGranted = await GrantLogroIfNotExists(userId, "Personalizar perfil");
+                }
+
+                return Ok(new
+                {
+                    success = true,
+                    message = "Imagen guardada exitosamente en la base de datos",
+                    storageType = "blob",
+                    size = imageData.Length,
+                    achievementGranted = achievementGranted
+                });
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(500, new { message = $"Error al subir la imagen: {ex.Message}" });
+            }
+        }
+
+        [HttpGet("{userId}/image-blob")]
+        public async Task<IActionResult> GetImageBlob(int userId, [FromQuery] string imageType)
+        {
+            if (string.IsNullOrWhiteSpace(imageType) || (imageType != "profile" && imageType != "cover"))
+            {
+                return BadRequest(new { message = "Tipo de imagen inválido. Debe ser 'profile' o 'cover'" });
+            }
+
+            try
+            {
+                var imageData = await _usersRepository.GetPhotoBlob(userId, imageType);
+                
+                if (imageData == null || imageData.Length == 0)
+                {
+                    return NotFound(new { message = "Imagen no encontrada en la base de datos" });
+                }
+
+                // Determine content type based on image data
+                string contentType = "image/jpeg"; // Default
+                if (imageData.Length > 4)
+                {
+                    // Check for PNG signature
+                    if (imageData[0] == 0x89 && imageData[1] == 0x50 && imageData[2] == 0x4E && imageData[3] == 0x47)
+                    {
+                        contentType = "image/png";
+                    }
+                    // Check for GIF signature
+                    else if (imageData[0] == 0x47 && imageData[1] == 0x49 && imageData[2] == 0x46)
+                    {
+                        contentType = "image/gif";
+                    }
+                }
+
+                return File(imageData, contentType);
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(500, new { message = $"Error al recuperar la imagen: {ex.Message}" });
             }
         }
 
@@ -275,6 +483,44 @@ namespace BACK.Controllers
             var bytes = Encoding.UTF8.GetBytes(password);
             var hash = sha256.ComputeHash(bytes);
             return Convert.ToBase64String(hash);
+        }
+
+        // --------------------------  ACHIEVEMENTS  ----------------------------
+        private async Task<bool> GrantLogroIfNotExists(int userId, string logroNombre)
+        {
+            try
+            {
+                // Get logro by name
+                var logro = await _logrosRepository.GetLogroByNombre(logroNombre);
+                if (logro == null)
+                {
+                    Console.WriteLine($"Logro '{logroNombre}' no encontrado");
+                    return false;
+                }
+
+                // Check if user already has this logro
+                var hasLogro = await _logrosUsuarioRepository.UserHasLogro(userId, logro.Id);
+                if (hasLogro)
+                {
+                    return false; // Already has it
+                }
+
+                // Grant the logro
+                var logroUsuario = new Logros_Usuario
+                {
+                    Id_Usuario = userId,
+                    Id_Logro = logro.Id,
+                    Fecha_Obtencion = DateTime.Now
+                };
+
+                var created = await _logrosUsuarioRepository.InsertLogrosUsuario(logroUsuario);
+                return created;
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"Error granting logro '{logroNombre}' to user {userId}: {ex.Message}");
+                return false;
+            }
         }
     }
 }

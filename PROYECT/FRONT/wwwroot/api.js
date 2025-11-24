@@ -93,11 +93,15 @@ window.api = {
 
     getUserById: async (userId) => {
         const result = await window.api._makeRequest(`/Users/${userId}`);
-        return result.data || result;
+        const user = result.data || result;
+        console.log('getUserById response:', user); // Debug log
+        console.log('ProfilePhotoPath in response:', user?.profilePhotoPath); // Debug log
+        console.log('CoverPhotoPath in response:', user?.coverPhotoPath); // Debug log
+        return user;
     },
 
     updateUserProfile: async (data) => {
-        // First get the current user to merge data
+        // First get the current user to merge data and preserve photo paths
         const currentUser = await window.api.getUserById(data.userId);
         if (!currentUser) {
             return { success: false, message: 'Usuario no encontrado' };
@@ -107,9 +111,17 @@ window.api = {
             id: data.userId,
             username: data.username || currentUser.username,
             email: data.email || currentUser.email,
-            nombre: currentUser.nombre,
-            apellidoPaterno: currentUser.apellidoPaterno,
-            apellidoMaterno: currentUser.apellidoMaterno
+            nombre: currentUser.nombre || '',
+            apellidoPaterno: currentUser.apellidoPaterno || '',
+            apellidoMaterno: currentUser.apellidoMaterno || '',
+            password: currentUser.password || '', // Preserve password
+            fechaRegistro: currentUser.fechaRegistro || new Date().toISOString(),
+            ultimaConexion: currentUser.ultimaConexion || null,
+            puntosTotales: currentUser.puntosTotales || 0,
+            nivelActual: currentUser.nivelActual || 1,
+            // CRITICAL: Preserve photo paths from database, not from stale currentUser object
+            profilePhotoPath: currentUser.profilePhotoPath || '',
+            coverPhotoPath: currentUser.coverPhotoPath || ''
         };
 
         return await window.api._makeRequest('/Users', {
@@ -157,7 +169,13 @@ window.api = {
             formData.append('file', blob, `image.${blob.type.split('/')[1]}`);
             formData.append('imageType', data.imageType);
 
-            const uploadResponse = await fetch(`${this.baseUrl}/Users/${data.userId}/upload-image`, {
+            // Use window.api.baseUrl instead of this.baseUrl
+            const baseUrl = window.api.baseUrl || 'http://localhost:5222/api';
+            const uploadUrl = `${baseUrl}/Users/${data.userId}/upload-image`;
+            
+            console.log('Uploading image to:', uploadUrl); // Debug log
+
+            const uploadResponse = await fetch(uploadUrl, {
                 method: 'POST',
                 body: formData
             });
@@ -168,10 +186,71 @@ window.api = {
                 throw new Error(result?.message || `Error ${uploadResponse.status}: ${uploadResponse.statusText}`);
             }
 
+            console.log('Image upload successful:', result); // Debug log
             return { success: true, message: result.message || 'Imagen guardada exitosamente', path: result.path };
         } catch (error) {
             console.error('Error al guardar la imagen:', error);
             return { success: false, message: error.message || 'Error al guardar la imagen' };
+        }
+    },
+
+    // Save image as BLOB in database
+    saveImageAsBlob: async (data) => {
+        try {
+            // Convert data URL to blob
+            const response = await fetch(data.dataUrl);
+            const blob = await response.blob();
+            
+            // Create FormData
+            const formData = new FormData();
+            formData.append('file', blob, `image.${blob.type.split('/')[1]}`);
+            formData.append('imageType', data.imageType);
+
+            const baseUrl = window.api.baseUrl || 'http://localhost:5222/api';
+            const uploadUrl = `${baseUrl}/Users/${data.userId}/upload-image-blob`;
+            
+            console.log('Uploading image as BLOB to:', uploadUrl);
+
+            const uploadResponse = await fetch(uploadUrl, {
+                method: 'POST',
+                body: formData
+            });
+
+            const result = await uploadResponse.json().catch(() => null);
+
+            if (!uploadResponse.ok) {
+                throw new Error(result?.message || `Error ${uploadResponse.status}: ${uploadResponse.statusText}`);
+            }
+
+            console.log('Image BLOB upload successful:', result);
+            return { success: true, message: result.message || 'Imagen guardada exitosamente en la base de datos', storageType: 'blob' };
+        } catch (error) {
+            console.error('Error al guardar la imagen como BLOB:', error);
+            return { success: false, message: error.message || 'Error al guardar la imagen' };
+        }
+    },
+
+    // Get image from BLOB in database
+    getImageBlob: async (userId, imageType) => {
+        try {
+            const baseUrl = window.api.baseUrl || 'http://localhost:5222/api';
+            const imageUrl = `${baseUrl}/Users/${userId}/image-blob?imageType=${imageType}`;
+            
+            const response = await fetch(imageUrl);
+            
+            if (!response.ok) {
+                if (response.status === 404) {
+                    return null; // Image not found
+                }
+                throw new Error(`Error ${response.status}: ${response.statusText}`);
+            }
+
+            // Return the blob URL
+            const blob = await response.blob();
+            return URL.createObjectURL(blob);
+        } catch (error) {
+            console.error('Error al recuperar la imagen desde BLOB:', error);
+            return null;
         }
     },
 
@@ -180,26 +259,46 @@ window.api = {
         return await window.api.executeCode(code, 'python');
     },
 
-    executeCode: async (code, language = 'python') => {
+    executeCode: async (code, language = 'python', userId = null) => {
+        const body = { code: code, language: language };
+        if (userId) {
+            body.userId = userId;
+        }
         const result = await window.api._makeRequest('/Python/execute', {
             method: 'POST',
-            body: { code: code, language: language }
+            body: body
         });
         
         return {
             success: result.success || false,
-            output: result.output || result.message || 'Error desconocido'
+            output: result.output || result.message || 'Error desconocido',
+            achievementGranted: result.achievementGranted || false
         };
     },
 
     // Curriculum-related APIs
-    cargarTemas: async (userId) => {
+    cargarTemas: async (userId, nivelId = null) => {
         const result = await window.api._makeRequest('/Temas');
+        let temas = [];
+        
         // The API returns data directly, not wrapped in a data property
         if (Array.isArray(result)) {
-            return result;
+            temas = result;
+        } else {
+            temas = result.data || result || [];
         }
-        return result.data || result || [];
+        
+        // Filtrar por nivel si se especifica
+        if (nivelId !== null && nivelId !== undefined) {
+            temas = temas.filter(t => 
+                t.IdNivel === nivelId || 
+                t.idNivel === nivelId || 
+                t.nivel_id === nivelId ||
+                t.nivelId === nivelId
+            );
+        }
+        
+        return temas;
     },
 
     cargarProblemas: async (userId, temaId) => {
@@ -264,6 +363,30 @@ window.api = {
     getProgresoByUserId: async (userId) => {
         const result = await window.api._makeRequest(`/Progreso_Problema?userId=${userId}`);
         return result.data || result;
+    },
+
+    // Achievements/Logros APIs
+    getAllLogros: async () => {
+        const result = await window.api._makeRequest('/Logros');
+        return result.data || result;
+    },
+
+    getLogrosByUserId: async (userId) => {
+        const result = await window.api._makeRequest(`/Logros_Usuario/user/${userId}`);
+        return result.data || result;
+    },
+
+    getLogroByNombre: async (nombre) => {
+        const result = await window.api._makeRequest(`/Logros/by-name/${encodeURIComponent(nombre)}`);
+        return result.data || result;
+    },
+
+    grantLogro: async (userId, logroId) => {
+        const result = await window.api._makeRequest('/Logros_Usuario/grant', {
+            method: 'POST',
+            body: { UserId: userId, LogroId: logroId }
+        });
+        return result;
     }
 };
 } // End of window.api definition check

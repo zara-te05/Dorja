@@ -63,5 +63,12 @@ namespace DorjaData.Repositories
             var result = await db.ExecuteAsync(sql, logros);
             return result > 0;
         }
+
+        public async Task<Logros> GetLogroByNombre(string nombre)
+        {
+            var db = dbConnection();
+            var sql = "SELECT * FROM logros WHERE nombre = @Nombre";
+            return await db.QueryFirstOrDefaultAsync<Logros>(sql, new { Nombre = nombre });
+        }
     }
 }

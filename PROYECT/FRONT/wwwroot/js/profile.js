@@ -11,6 +11,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     const profileEmail = document.getElementById('profile-email');
     const profilePhoto = document.getElementById('profile-photo');
     const coverPhoto = document.getElementById('cover-photo');
+    const profilePhotoContainer = document.getElementById('profile-photo-container');
 
     // Botones principales
     const editProfileBtn = document.getElementById('edit-profile-btn');
@@ -37,9 +38,29 @@ document.addEventListener('DOMContentLoaded', async () => {
 
     // CARGA DE DATOS DEL USUARIO 
     
+    async function loadAchievements() {
+        try {
+            const achievements = await loadUserAchievements(userId);
+            const container = document.getElementById('achievements-container');
+            if (container) {
+                renderAchievements(achievements, container);
+            }
+        } catch (error) {
+            console.error('Error loading achievements:', error);
+            const container = document.getElementById('achievements-container');
+            if (container) {
+                container.innerHTML = '<p class="text-red-500">Error al cargar los logros</p>';
+            }
+        }
+    }
+
     async function loadUserProfile() {
         try {
             const user = await window.api.getUserById(userId);
+            console.log('User data loaded:', user); // Debug log
+            console.log('ProfilePhotoPath:', user?.profilePhotoPath); // Debug log
+            console.log('CoverPhotoPath:', user?.coverPhotoPath); // Debug log
+            
             if (user) {
                 currentUser = user;
                 profileUsername.textContent = user.username;
@@ -47,20 +68,114 @@ document.addEventListener('DOMContentLoaded', async () => {
                 editUsernameInput.value = user.username;
                 editEmailInput.value = user.email;
 
-                const initial = user.username.charAt(0).toUpperCase();
+                const initial = user.username ? user.username.charAt(0).toUpperCase() : 'U';
                 
-                if (user.profilePhotoPath && user.profilePhotoPath.trim() !== '') {
-                    // Use backend URL for images
-                    profilePhoto.src = `http://localhost:5222${user.profilePhotoPath}`;
-                } else {
-                    profilePhoto.src = `https://via.placeholder.com/150/818cf8/ffffff?text=${initial}`;
+                // Store initial in container for fallback
+                if (profilePhotoContainer) {
+                    profilePhotoContainer.dataset.initial = initial;
+                }
+                
+                // Try to load profile photo from BLOB first, then fallback to file path
+                let profilePhotoLoaded = false;
+                
+                // Try BLOB first (database storage)
+                try {
+                    const profileBlobUrl = await window.api.getImageBlob(userId, 'profile');
+                    if (profileBlobUrl) {
+                        console.log('Loading profile photo from BLOB'); // Debug log
+                        if (profilePhoto) {
+                            profilePhoto.style.display = 'block';
+                            profilePhoto.onerror = () => {
+                                console.error('Failed to load profile image from BLOB');
+                                profilePhoto.style.display = 'none';
+                                if (profilePhotoContainer) {
+                                    profilePhotoContainer.innerHTML = `<span class='text-white text-4xl font-bold'>${initial}</span>`;
+                                }
+                                profilePhoto.onerror = null;
+                            };
+                            profilePhoto.src = profileBlobUrl;
+                            profilePhotoLoaded = true;
+                        }
+                    }
+                } catch (blobError) {
+                    console.log('No profile photo BLOB found, trying file path'); // Debug log
+                }
+                
+                // Fallback to file path if BLOB not found
+                if (!profilePhotoLoaded && user.profilePhotoPath && user.profilePhotoPath.trim() !== '') {
+                    const profileImageUrl = `http://localhost:5222${user.profilePhotoPath}`;
+                    console.log('Setting profile photo URL from file path:', profileImageUrl); // Debug log
+                    
+                    if (profilePhoto) {
+                        profilePhoto.style.display = 'block';
+                        profilePhoto.onerror = () => {
+                            console.error('Failed to load profile image from file path:', profileImageUrl);
+                            profilePhoto.style.display = 'none';
+                            if (profilePhotoContainer) {
+                                profilePhotoContainer.innerHTML = `<span class='text-white text-4xl font-bold'>${initial}</span>`;
+                            }
+                            profilePhoto.onerror = null;
+                        };
+                        profilePhoto.src = profileImageUrl;
+                        profilePhotoLoaded = true;
+                    }
+                }
+                
+                // If still no image, show initial
+                if (!profilePhotoLoaded) {
+                    console.log('No profile photo found, showing initial'); // Debug log
+                    if (profilePhoto) {
+                        profilePhoto.style.display = 'none';
+                    }
+                    if (profilePhotoContainer) {
+                        profilePhotoContainer.innerHTML = `<span class='text-white text-4xl font-bold'>${initial}</span>`;
+                    }
                 }
 
-                if (user.coverPhotoPath && user.coverPhotoPath.trim() !== '') {
-                    // Use backend URL for images
-                    coverPhoto.src = `http://localhost:5222${user.coverPhotoPath}`;
-                } else {
-                    coverPhoto.src = `https://via.placeholder.com/1500x500/6366F1/FFFFFF?text=Dashboard`;
+                // Try to load cover photo from BLOB first, then fallback to file path
+                let coverPhotoLoaded = false;
+                
+                // Try BLOB first (database storage)
+                try {
+                    const coverBlobUrl = await window.api.getImageBlob(userId, 'cover');
+                    if (coverBlobUrl) {
+                        console.log('Loading cover photo from BLOB'); // Debug log
+                        if (coverPhoto) {
+                            coverPhoto.onerror = () => {
+                                console.error('Failed to load cover image from BLOB');
+                                coverPhoto.style.display = 'none';
+                                coverPhoto.onerror = null;
+                            };
+                            coverPhoto.src = coverBlobUrl;
+                            coverPhotoLoaded = true;
+                        }
+                    }
+                } catch (blobError) {
+                    console.log('No cover photo BLOB found, trying file path'); // Debug log
+                }
+                
+                // Fallback to file path if BLOB not found
+                if (!coverPhotoLoaded && user.coverPhotoPath && user.coverPhotoPath.trim() !== '') {
+                    const coverImageUrl = `http://localhost:5222${user.coverPhotoPath}`;
+                    console.log('Setting cover photo URL from file path:', coverImageUrl); // Debug log
+                    
+                    if (coverPhoto) {
+                        coverPhoto.onerror = () => {
+                            console.error('Failed to load cover image from file path:', coverImageUrl);
+                            coverPhoto.style.display = 'none';
+                            coverPhoto.onerror = null;
+                        };
+                        coverPhoto.src = coverImageUrl;
+                        coverPhotoLoaded = true;
+                    }
+                }
+                
+                // If still no image, hide cover photo
+                if (!coverPhotoLoaded) {
+                    console.log('No cover photo found'); // Debug log
+                    if (coverPhoto) {
+                        coverPhoto.style.display = 'none';
+                    }
                 }
 
             } else {
@@ -71,7 +186,10 @@ document.addEventListener('DOMContentLoaded', async () => {
             console.error('Error al cargar datos del perfil:', error);
         }
     }
+
+    // Load user profile and achievements
     await loadUserProfile();
+    await loadAchievements();
 
     const handleImageUpload = async (file, imageType) => {
         if (!file) return;
@@ -94,22 +212,65 @@ document.addEventListener('DOMContentLoaded', async () => {
         reader.onload = async (e) => {
             const dataUrl = e.target.result;
             const imgElement = imageType === 'profile' ? profilePhoto : coverPhoto;
+            const originalSrc = imgElement.src; // Save original src
+            
+            // Set preview immediately and keep it
             imgElement.src = dataUrl;
+            imgElement.onerror = null; // Clear any error handlers
 
             try {
-                const result = await window.api.saveImage({ userId, imageType, dataUrl });
+                // Use BLOB storage method (saves directly to database)
+                const result = await window.api.saveImageAsBlob({ userId, imageType, dataUrl });
+                console.log('Image BLOB upload result:', result); // Debug log
+                
                 if (result.success) {
-                    // Reload profile to get updated paths
-                    await loadUserProfile();
-                    alert(`La foto de ${imageType === 'profile' ? 'perfil' : 'portada'} se ha actualizado exitosamente.`);
+                    // For BLOB storage, we keep the preview as data URL or reload from BLOB
+                    // The image is now stored in the database, so we can keep the preview
+                    // or fetch it from the database endpoint
+                    
+                    // Option 1: Keep the data URL (simpler, works immediately)
+                    // imgElement.src = dataUrl; // Already set above
+                    
+                    // Option 2: Fetch from database BLOB endpoint (ensures sync with DB)
+                    try {
+                        const blobUrl = await window.api.getImageBlob(userId, imageType);
+                        if (blobUrl) {
+                            imgElement.src = blobUrl;
+                            imgElement.onerror = () => {
+                                console.error('Failed to load image from BLOB, using preview');
+                                imgElement.src = dataUrl;
+                            };
+                        }
+                    } catch (blobError) {
+                        console.warn('Could not fetch image from BLOB, using preview:', blobError);
+                        // Keep the data URL preview
+                    }
+                    
+                    // Check if achievement was granted
+                    if (result.achievementGranted && imageType === 'profile') {
+                        await showAchievementPopup('Personalizar perfil', 'Has añadido una foto de perfil. ¡Tu perfil se ve genial!', 'fa-user-circle');
+                    } else {
+                        alert(`La foto de ${imageType === 'profile' ? 'perfil' : 'portada'} se ha guardado exitosamente en la base de datos.`);
+                    }
                 } else {
+                    console.error('Image BLOB upload failed:', result.message); // Debug log
                     alert(result.message || 'No se pudo guardar la imagen.');
-                    await loadUserProfile(); // Restore original image
+                    // Restore original image
+                    if (originalSrc) {
+                        imgElement.src = originalSrc;
+                    } else {
+                        await loadUserProfile();
+                    }
                 }
             } catch (error) {
                 console.error(`Error al guardar la imagen de ${imageType}:`, error);
                 alert('No se pudo guardar la imagen. Por favor, intenta de nuevo.');
-                await loadUserProfile(); // Restore original image
+                // Restore original image
+                if (originalSrc) {
+                    imgElement.src = originalSrc;
+                } else {
+                    await loadUserProfile();
+                }
             }
         };
         reader.readAsDataURL(file);
