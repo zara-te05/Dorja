@@ -106,7 +106,7 @@ class CurriculumManager {
 
     async getRandomProblem(userId) {
         try {
-            console.log('🔄 Obteniendo problema aleatorio para usuario:', userId);
+            console.log('🔄 Obteniendo siguiente problema para usuario:', userId);
             
             if (this.useMockData) {
                 const problemas = await this.getMockProblemas(1);
@@ -116,11 +116,12 @@ class CurriculumManager {
                 return null;
             }
 
-            const problema = await window.api.getRandomProblem(userId);
-            console.log('✅ Problema aleatorio obtenido:', problema);
+            // Use getNextProblem to enforce syllabus order and prevent repeats
+            const problema = await window.api.getNextProblem(userId);
+            console.log('✅ Siguiente problema obtenido:', problema);
             return problema;
         } catch (error) {
-            console.error('❌ Error obteniendo problema aleatorio:', error);
+            console.error('❌ Error obteniendo siguiente problema:', error);
             return null;
         }
     }

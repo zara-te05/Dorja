@@ -103,6 +103,10 @@ public class Program
         // Asignar el editor a window para que esté disponible globalmente
         window.monacoEditor = editor;
         window.currentLanguage = currentLanguage;
+        
+        // Dispatch event when editor is ready
+        window.dispatchEvent(new CustomEvent('monaco-editor-ready', { detail: { editor } }));
+        console.log('✅ Monaco Editor inicializado y listo');
 
         const outputContent = document.getElementById('output-content');
         const runBtn = document.getElementById('run-btn');

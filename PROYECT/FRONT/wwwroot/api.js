@@ -20,7 +20,7 @@ window.api = {
                 url = `http://${url}`;
             }
 
-            console.log('Making API request to:', url);
+            console.log('🌐 Making API request to:', url);
 
             const response = await fetch(url, {
                 method: options.method || 'GET',
@@ -32,13 +32,43 @@ window.api = {
                 body: options.body ? JSON.stringify(options.body) : undefined
             });
 
-            const result = await response.json().catch(() => null);
+            let result = null;
+            let responseText = '';
+            try {
+                responseText = await response.text();
+                if (responseText && responseText.trim().length > 0) {
+                    result = JSON.parse(responseText);
+                }
+            } catch (e) {
+                console.warn('Could not parse JSON response:', e);
+                // If it's not JSON, try to return the text as message
+                if (responseText && responseText.trim().length > 0) {
+                    result = { message: responseText };
+                }
+            }
+            
+            console.log('📥 API Response:', { status: response.status, result });
 
             if (!response.ok) {
-                throw new Error(result?.message || `Error ${response.status}: ${response.statusText}`);
+                const errorMsg = result?.message || result?.Message || `Error ${response.status}: ${response.statusText}`;
+                console.error('❌ API Error:', errorMsg);
+                console.error('Full error response:', result);
+                throw new Error(errorMsg);
             }
 
             // Handle different response types
+            // For Exercise endpoints, the result is the problem object directly
+            if (endpoint.includes('/Exercise/')) {
+                // Exercise endpoints return the object directly
+                if (result && (result.id || result.Id || result.titulo || result.Titulo || result.problemasCompletados !== undefined || result.ProblemasCompletados !== undefined)) {
+                    return { success: true, data: result };
+                }
+                // If result is already wrapped, return as is
+                if (result && result.data) {
+                    return { success: true, data: result.data, ...result };
+                }
+            }
+            
             if (Array.isArray(result)) {
                 return { success: true, data: result };
             } else if (result && typeof result === 'object') {
@@ -47,7 +77,7 @@ window.api = {
                 return { success: true, data: result };
             }
         } catch (error) {
-            console.error(`Error en API ${endpoint}:`, error);
+            console.error(`❌ Error en API ${endpoint}:`, error);
             let errorMessage = error.message || 'Error de conexión con el servidor';
             
             // Provide more helpful error messages
@@ -392,6 +422,34 @@ window.api = {
     // Exercise APIs
     getRandomProblem: async (userId) => {
         const result = await window.api._makeRequest(`/Exercise/random/${userId}`);
+        return result.data || result;
+    },
+
+    getNextProblem: async (userId) => {
+        try {
+            const result = await window.api._makeRequest(`/Exercise/next/${userId}`);
+            console.log('📥 Respuesta completa de getNextProblem:', result);
+            
+            // Handle different response formats
+            if (result.success && result.data) {
+                return result.data;
+            } else if (result.data) {
+                return result.data;
+            } else if (result.id || result.Id) {
+                // Direct problem object
+                return result;
+            } else {
+                console.error('❌ Formato de respuesta inesperado:', result);
+                return null;
+            }
+        } catch (error) {
+            console.error('❌ Error en getNextProblem:', error);
+            throw error;
+        }
+    },
+
+    getUserProgress: async (userId) => {
+        const result = await window.api._makeRequest(`/Exercise/progress/${userId}`);
         return result.data || result;
     },
 
