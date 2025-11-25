@@ -2,6 +2,7 @@
 using DorjaData.Repositories;
 using DorjaModelado.Repositories;
 using BACK;
+using BACK.Services;
 using Microsoft.Extensions.FileProviders;
 
 var builder = WebApplication.CreateBuilder(args);
@@ -24,9 +25,9 @@ builder.Services.AddSwaggerGen();
 
 
 // REGISTRAR CONFIGURACIÓN SQLITE
-builder.Services.AddSingleton(new SQLiteConfiguration(
-    builder.Configuration.GetConnectionString("DorjaConnection")
-));
+var connectionString = builder.Configuration.GetConnectionString("DorjaConnection") 
+    ?? throw new InvalidOperationException("Connection string 'DorjaConnection' not found.");
+builder.Services.AddSingleton(new SQLiteConfiguration(connectionString));
 
 
 // REGISTRAR REPOSITORIO
@@ -43,7 +44,6 @@ builder.Services.AddScoped<ICertificadosRepository, CertificadoRepository>();
 builder.Services.AddScoped<ExerciseService>();
 
 // Initialize SQLite database
-var connectionString = builder.Configuration.GetConnectionString("DorjaConnection");
 DatabaseInitializer.InitializeDatabase(connectionString);
 
 var app = builder.Build();
@@ -80,8 +80,8 @@ app.UseAuthorization();
 app.MapControllers();
 
 // Log startup information
-Console.WriteLine($"🚀 Backend server starting...");
-Console.WriteLine($"📊 Database initialized at: {connectionString}");
-Console.WriteLine($"🌐 Server will be available at: http://localhost:5222");
+Console.WriteLine($" Backend server starting...");
+Console.WriteLine($" Database initialized at: {connectionString}");
+Console.WriteLine($" Server will be available at: http://localhost:5222");
 
 app.Run();

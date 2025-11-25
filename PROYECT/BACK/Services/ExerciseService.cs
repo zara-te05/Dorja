@@ -115,7 +115,18 @@ namespace BACK.Services
             if (!solutionResult.Success)
             {
                 // If solution code has errors, fall back to string comparison
-                return ValidateByStringComparison(codigo, problema.Solucion);
+                bool isValid = ValidateByStringComparison(codigo, problema.Solucion);
+                await UpdateProgress(userId, problemaId, codigo, isValid, problema.PuntosOtorgados);
+                return new ValidationResult
+                {
+                    IsCorrect = isValid,
+                    Message = isValid 
+                        ? $"¡Solución correcta! Has ganado {problema.PuntosOtorgados} puntos." 
+                        : "La solución no es correcta. Revisa tu código e intenta de nuevo.",
+                    PuntosOtorgados = isValid ? problema.PuntosOtorgados : 0,
+                    UserOutput = userResult.Output,
+                    ExpectedOutput = "(No disponible - error en código de solución)"
+                };
             }
 
             // Compare outputs (normalized)

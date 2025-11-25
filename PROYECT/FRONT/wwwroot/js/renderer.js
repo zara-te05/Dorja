@@ -1,34 +1,74 @@
-// Helper function to set profile image
-function setProfileImage(imgElement, user) {
+// Helper function to set profile image (same logic as profile.js)
+async function setProfileImage(imgElement, user, userId) {
     if (!imgElement || !user) return;
     
     const initial = user.username ? user.username.charAt(0).toUpperCase() : 'U';
+    const container = imgElement.parentElement;
     
-    if (user.profilePhotoPath && user.profilePhotoPath.trim() !== '') {
-        // Use backend URL for images
-        imgElement.src = `http://localhost:5222${user.profilePhotoPath}`;
-        imgElement.onerror = () => {
-            // If image fails, show initial as text
-            const container = imgElement.parentElement;
-            if (container) {
+    // Store initial in container for fallback
+    if (container) {
+        container.dataset.initial = initial;
+    }
+    
+    let profilePhotoLoaded = false;
+    
+    // Try BLOB first (database storage)
+    try {
+        const profileBlobUrl = await window.api.getImageBlob(userId, 'profile');
+        if (profileBlobUrl) {
+            console.log('Loading profile photo from BLOB');
+            imgElement.style.display = 'block';
+            imgElement.onerror = () => {
+                console.error('Failed to load profile image from BLOB');
                 imgElement.style.display = 'none';
-                const initialSpan = document.createElement('span');
-                initialSpan.className = 'text-white text-lg font-bold';
-                initialSpan.textContent = initial;
-                container.appendChild(initialSpan);
+                if (container) {
+                    // Remove any existing span
+                    const existingSpan = container.querySelector('span');
+                    if (existingSpan) existingSpan.remove();
+                    container.innerHTML = `<span class='text-white text-lg font-bold'>${initial}</span>`;
+                }
+                imgElement.onerror = null;
+            };
+            imgElement.src = profileBlobUrl;
+            profilePhotoLoaded = true;
+        }
+    } catch (blobError) {
+        console.log('No profile photo BLOB found, trying file path');
+    }
+    
+    // Fallback to file path if BLOB not found
+    if (!profilePhotoLoaded && user.profilePhotoPath && user.profilePhotoPath.trim() !== '') {
+        const profileImageUrl = `http://localhost:5222${user.profilePhotoPath}`;
+        console.log('Setting profile photo URL from file path:', profileImageUrl);
+        
+        imgElement.style.display = 'block';
+        imgElement.onerror = () => {
+            console.error('Failed to load profile image from file path:', profileImageUrl);
+            imgElement.style.display = 'none';
+            if (container) {
+                // Remove any existing span
+                const existingSpan = container.querySelector('span');
+                if (existingSpan) existingSpan.remove();
+                container.innerHTML = `<span class='text-white text-lg font-bold'>${initial}</span>`;
             }
+            imgElement.onerror = null;
         };
-    } else {
-        // Show initial as text instead of placeholder
+        imgElement.src = profileImageUrl;
+        profilePhotoLoaded = true;
+    }
+    
+    // If still no image, show initial
+    if (!profilePhotoLoaded) {
+        console.log('No profile photo found, showing initial');
         imgElement.style.display = 'none';
-        const container = imgElement.parentElement;
         if (container) {
-            const initialSpan = document.createElement('span');
-            initialSpan.className = 'text-white text-lg font-bold';
-            initialSpan.textContent = initial;
-            container.appendChild(initialSpan);
+            // Remove any existing span
+            const existingSpan = container.querySelector('span');
+            if (existingSpan) existingSpan.remove();
+            container.innerHTML = `<span class='text-white text-lg font-bold'>${initial}</span>`;
         }
     }
+    
     imgElement.alt = `Avatar de ${user.username || 'Usuario'}`;
 }
 
@@ -56,35 +96,77 @@ async function initializeHomePage() {
             
             // Set avatar in dropdown menu
             if (userAvatar) {
-                setProfileImage(userAvatar, user);
+                await setProfileImage(userAvatar, user, userId);
             }
             
             // Set profile image in hero section (the large image)
-            const heroImageContainer = document.querySelector('main .lg\\:col-span-2 div img[alt="Foto de perfil"]')?.parentElement ||
-                                      document.querySelector('main section div img[alt="Foto de perfil"]')?.parentElement;
-            const heroImg = heroImageContainer?.querySelector('img[alt="Foto de perfil"]');
+            const heroImg = document.getElementById('profile-photo');
+            const heroImageContainer = heroImg?.parentElement;
             
             if (heroImg) {
                 const initial = user.username ? user.username.charAt(0).toUpperCase() : 'U';
                 
-                if (user.profilePhotoPath && user.profilePhotoPath.trim() !== '') {
-                    heroImg.src = `http://localhost:5222${user.profilePhotoPath}`;
+                // Store initial in container for fallback
+                if (heroImageContainer) {
+                    heroImageContainer.dataset.initial = initial;
+                }
+                
+                let profilePhotoLoaded = false;
+                
+                // Try BLOB first (database storage)
+                try {
+                    const profileBlobUrl = await window.api.getImageBlob(userId, 'profile');
+                    if (profileBlobUrl) {
+                        console.log('Loading hero profile photo from BLOB');
+                        heroImg.style.display = 'block';
+                        heroImg.onerror = () => {
+                            console.error('Failed to load hero profile image from BLOB');
+                            heroImg.style.display = 'none';
+                            if (heroImageContainer) {
+                                // Remove any existing span
+                                const existingSpan = heroImageContainer.querySelector('span');
+                                if (existingSpan) existingSpan.remove();
+                                heroImageContainer.innerHTML = `<span class='text-white text-4xl font-bold'>${initial}</span>`;
+                            }
+                            heroImg.onerror = null;
+                        };
+                        heroImg.src = profileBlobUrl;
+                        profilePhotoLoaded = true;
+                    }
+                } catch (blobError) {
+                    console.log('No hero profile photo BLOB found, trying file path');
+                }
+                
+                // Fallback to file path if BLOB not found
+                if (!profilePhotoLoaded && user.profilePhotoPath && user.profilePhotoPath.trim() !== '') {
+                    const profileImageUrl = `http://localhost:5222${user.profilePhotoPath}`;
+                    console.log('Setting hero profile photo URL from file path:', profileImageUrl);
+                    
+                    heroImg.style.display = 'block';
                     heroImg.onerror = () => {
+                        console.error('Failed to load hero profile image from file path:', profileImageUrl);
                         heroImg.style.display = 'none';
                         if (heroImageContainer) {
-                            const span = document.createElement('span');
-                            span.className = 'text-white text-4xl font-bold';
-                            span.textContent = initial;
-                            heroImageContainer.appendChild(span);
+                            // Remove any existing span
+                            const existingSpan = heroImageContainer.querySelector('span');
+                            if (existingSpan) existingSpan.remove();
+                            heroImageContainer.innerHTML = `<span class='text-white text-4xl font-bold'>${initial}</span>`;
                         }
+                        heroImg.onerror = null;
                     };
-                } else {
+                    heroImg.src = profileImageUrl;
+                    profilePhotoLoaded = true;
+                }
+                
+                // If still no image, show initial
+                if (!profilePhotoLoaded) {
+                    console.log('No hero profile photo found, showing initial');
                     heroImg.style.display = 'none';
                     if (heroImageContainer) {
-                        const span = document.createElement('span');
-                        span.className = 'text-white text-4xl font-bold';
-                        span.textContent = initial;
-                        heroImageContainer.appendChild(span);
+                        // Remove any existing span
+                        const existingSpan = heroImageContainer.querySelector('span');
+                        if (existingSpan) existingSpan.remove();
+                        heroImageContainer.innerHTML = `<span class='text-white text-4xl font-bold'>${initial}</span>`;
                     }
                 }
             }
