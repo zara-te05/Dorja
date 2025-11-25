@@ -36,6 +36,20 @@ namespace DorjaData.Repositories
             return await db.QueryFirstOrDefaultAsync<Progreso_Problema>(sql, new { Id = id });
         }
 
+        public async Task<Progreso_Problema> GetByUserAndProblema(int userId, int problemaId)
+        {
+            var db = dbConnection();
+            var sql = "SELECT * FROM progreso_problema WHERE user_id = @UserId AND problema_id = @ProblemaId";
+            return await db.QueryFirstOrDefaultAsync<Progreso_Problema>(sql, new { UserId = userId, ProblemaId = problemaId });
+        }
+
+        public async Task<IEnumerable<Progreso_Problema>> GetByUserId(int userId)
+        {
+            var db = dbConnection();
+            var sql = "SELECT * FROM progreso_problema WHERE user_id = @UserId";
+            return await db.QueryAsync<Progreso_Problema>(sql, new { UserId = userId });
+        }
+
         public async Task<bool> InsertProgreso_Problemas(Progreso_Problema progreso_problema)
         {
             var db = dbConnection();

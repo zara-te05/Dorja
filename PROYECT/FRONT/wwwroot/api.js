@@ -387,6 +387,25 @@ window.api = {
             body: { UserId: userId, LogroId: logroId }
         });
         return result;
+    },
+
+    // Exercise APIs
+    getRandomProblem: async (userId) => {
+        const result = await window.api._makeRequest(`/Exercise/random/${userId}`);
+        return result.data || result;
+    },
+
+    validateSolution: async (userId, problemaId, codigo, language = 'python') => {
+        const result = await window.api._makeRequest('/Exercise/validate', {
+            method: 'POST',
+            body: {
+                UserId: userId,
+                ProblemaId: problemaId,
+                Codigo: codigo,
+                Language: language
+            }
+        });
+        return result.data || result;
     }
 };
 } // End of window.api definition check

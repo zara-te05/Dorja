@@ -9,6 +9,8 @@ namespace DorjaData.Repositories
     {
         Task<IEnumerable<Problema>> GetAllProblemas();
         Task<Problema> GetDetails(int id);
+        Task<IEnumerable<Problema>> GetProblemasByTema(int temaId);
+        Task<IEnumerable<Problema>> GetProblemasByNivel(int nivelId);
         Task<bool> InsertProblemas(Problema problema);
         Task<bool> UpdateProblemas(Problema problema);
         Task<bool> DeleteProblemas(Problema problema);

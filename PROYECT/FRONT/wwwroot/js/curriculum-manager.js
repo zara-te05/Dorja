@@ -89,12 +89,39 @@ class CurriculumManager {
                 return { correcto: true, mensaje: "¡Correcto! (simulado)" };
             }
 
-            const resultado = await this.api.verificarSolucion(this.currentUser, codigoUsuario, problemaId);
+            const resultado = await window.api.validateSolution(this.currentUser, problemaId, codigoUsuario);
             console.log('✅ Resultado verificación:', resultado);
-            return resultado;
+            
+            // Convert to expected format
+            return {
+                correcto: resultado.isCorrect || resultado.IsCorrect || false,
+                mensaje: resultado.message || resultado.Message || "Resultado desconocido",
+                puntosOtorgados: resultado.puntosOtorgados || resultado.PuntosOtorgados || 0
+            };
         } catch (error) {
             console.error('❌ Error verificando solución:', error);
-            return { correcto: false, mensaje: "Error al verificar la solución" };
+            return { correcto: false, mensaje: "Error al verificar la solución: " + error.message };
+        }
+    }
+
+    async getRandomProblem(userId) {
+        try {
+            console.log('🔄 Obteniendo problema aleatorio para usuario:', userId);
+            
+            if (this.useMockData) {
+                const problemas = await this.getMockProblemas(1);
+                if (problemas.length > 0) {
+                    return problemas[0];
+                }
+                return null;
+            }
+
+            const problema = await window.api.getRandomProblem(userId);
+            console.log('✅ Problema aleatorio obtenido:', problema);
+            return problema;
+        } catch (error) {
+            console.error('❌ Error obteniendo problema aleatorio:', error);
+            return null;
         }
     }
 

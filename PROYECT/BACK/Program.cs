@@ -39,6 +39,9 @@ builder.Services.AddScoped<ILogrosRepository, LogrosRepository>();
 builder.Services.AddScoped<ILogros_UsuarioRepository, Logros_UsuarioRepository>();
 builder.Services.AddScoped<ICertificadosRepository, CertificadoRepository>();
 
+// REGISTRAR SERVICIOS
+builder.Services.AddScoped<ExerciseService>();
+
 // Initialize SQLite database
 var connectionString = builder.Configuration.GetConnectionString("DorjaConnection");
 DatabaseInitializer.InitializeDatabase(connectionString);
@@ -75,5 +78,10 @@ app.UseStaticFiles(staticFileOptions);
 app.UseAuthorization();
 
 app.MapControllers();
+
+// Log startup information
+Console.WriteLine($"🚀 Backend server starting...");
+Console.WriteLine($"📊 Database initialized at: {connectionString}");
+Console.WriteLine($"🌐 Server will be available at: http://localhost:5222");
 
 app.Run();

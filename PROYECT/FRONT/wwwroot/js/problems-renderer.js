@@ -9,367 +9,301 @@ if (typeof showAchievementPopup === 'undefined') {
 
 class ProblemsRenderer {
     constructor() {
-        this.currentTemaId = null;
         this.currentProblemaId = null;
-        this.problemas = [];
+        this.currentProblema = null;
         this.userId = null;
-        this.currentNivelId = null;
     }
 
-    async init(userId, nivelId = null) {
-        console.log('🔄 Inicializando ProblemsRenderer con userId:', userId, nivelId ? `y nivel ${nivelId}` : '');
+    async init(userId) {
+        console.log('🔄 Inicializando ProblemsRenderer con userId:', userId);
         this.userId = userId;
-        this.currentNivelId = nivelId;
         
         try {
             await window.curriculumManager.init(userId);
             console.log('✅ CurriculumManager inicializado');
             
-            // Si no se especificó nivelId, obtener el nivel actual del usuario
-            if (!this.currentNivelId) {
-                const user = await window.api.getUserById(userId);
-                this.currentNivelId = user?.nivelActual || user?.nivel_actual || 1;
-                console.log('📊 Nivel actual del usuario:', this.currentNivelId);
-            }
-            
-            await this.renderSidebarTemas();
-            console.log('✅ Sidebar de temas renderizado');
+            // Load a random problem for the user
+            await this.loadRandomProblem();
         } catch (error) {
             console.error('❌ Error en init:', error);
+            this.showError('Error al inicializar: ' + error.message);
         }
     }
 
-    async renderSidebarTemas() {
+    async loadRandomProblem() {
         try {
-            console.log('🔄 Cargando temas para nivel:', this.currentNivelId);
-            const temas = await window.curriculumManager.cargarTemas(this.currentNivelId);
-            console.log('📚 Temas cargados:', temas);
+            console.log('🔄 Cargando problema aleatorio...');
             
-            const sidebar = document.getElementById('topics-sidebar');
-            console.log('📍 Elemento sidebar encontrado:', !!sidebar);
+            // Hide problem selection UI
+            this.hideProblemSelection();
             
-            if (!sidebar) {
-                console.error('❌ No se encontró el elemento topics-sidebar');
+            // Show loading state
+            this.showLoading();
+            
+            const problema = await window.curriculumManager.getRandomProblem(this.userId);
+            
+            if (!problema) {
+                this.showError('No se pudo cargar un problema. Intenta de nuevo.');
                 return;
             }
+
+            console.log('✅ Problema cargado:', problema);
+            this.currentProblema = problema;
+            this.currentProblemaId = problema.id || problema.Id || problema.IdProblema;
             
-            // Asegurar que el sidebar sea visible
-            sidebar.style.display = 'block';
-            sidebar.style.visibility = 'visible';
-            sidebar.style.opacity = '1';
+            this.renderProblem(problema);
+        } catch (error) {
+            console.error('❌ Error cargando problema:', error);
+            this.showError('Error al cargar el problema: ' + error.message);
+        }
+    }
+
+    renderProblem(problema) {
+        try {
+            const problemaId = problema.id || problema.Id || problema.IdProblema;
+            const titulo = problema.titulo || problema.Titulo || 'Sin título';
+            const descripcion = problema.descripcion || problema.Descripcion || '';
+            const ejemplo = problema.ejemplo || problema.Ejemplo || '';
+            const dificultad = problema.dificultad || problema.Dificultad || 'Media';
+            const puntos = problema.puntos_otorgados || problema.PuntosOtorgados || 0;
+            const codigoInicial = problema.codigo_inicial || problema.CodigoInicial || '# Escribe tu código aquí\n';
+
+            // Update UI
+            const problemTitleEl = document.getElementById('problem-title');
+            const problemDescEl = document.getElementById('problem-description');
             
-            // Actualizar texto de progreso con el nivel
-            const progressText = document.getElementById('progress-text');
-            if (progressText) {
-                progressText.textContent = `Nivel ${this.currentNivelId || 1}`;
+            if (problemTitleEl) {
+                problemTitleEl.textContent = titulo;
             }
             
-            if (!temas || temas.length === 0) {
-                console.log('⚠ No hay temas disponibles para el nivel:', this.currentNivelId);
-                sidebar.innerHTML = `<div class="text-gray-500 dark:text-slate-400 text-sm p-4 text-center">No hay temas disponibles para este nivel</div>`;
-                return;
-            }
-            
-            const temasHTML = temas.map(tema => {
-                const temaId = tema.id || tema.IdTemas || tema.Id;
-                const locked = tema.locked === 1 || tema.locked === true || tema.Locked === true;
-                const totalProblemas = tema.total_problemas || tema.TotalProblemas || 0;
-                const problemasCompletados = tema.problemas_completados || tema.ProblemasCompletados || 0;
-                
-                return `
-                    <div class="tema p-3 mb-2 rounded ${locked ? 'locked' : ''}" 
-                         data-tema-id="${temaId}" 
-                         onclick="window.problemsRenderer.seleccionarTema(${temaId})">
-                        <h4 class="font-medium text-gray-800 dark:text-white text-sm">${tema.titulo || tema.Titulo}</h4>
-                        <div class="w-full bg-gray-200 dark:bg-slate-700 rounded-full h-2 mt-2">
-                            <div class="progress-bar bg-indigo-600 h-2 rounded-full" 
-                                 style="width: ${totalProblemas > 0 ? (problemasCompletados / totalProblemas) * 100 : 0}%">
+            if (problemDescEl) {
+                problemDescEl.innerHTML = `
+                    <div class="space-y-4">
+                        <p class="text-gray-700 dark:text-gray-300">${descripcion}</p>
+                        ${ejemplo ? `
+                            <div class="mt-4 p-3 bg-blue-50 dark:bg-slate-700 rounded-lg">
+                                <strong class="text-blue-800 dark:text-blue-300">Ejemplo:</strong>
+                                <code class="block mt-2 text-sm bg-gray-100 dark:bg-slate-800 px-2 py-1 rounded">${ejemplo}</code>
                             </div>
-                        </div>
-                        <div class="flex justify-between text-xs mt-1">
-                            <span class="text-gray-600 dark:text-slate-400">
-                                ${problemasCompletados}/${totalProblemas}
-                            </span>
-                            <span>${locked ? '🔒' : '🔓'}</span>
+                        ` : ''}
+                        <div class="flex gap-4 text-sm text-gray-600 dark:text-slate-400">
+                            <span><strong>Dificultad:</strong> ${dificultad}</span>
+                            <span><strong>Puntos:</strong> ${puntos}</span>
                         </div>
                     </div>
                 `;
-            }).join('');
-
-            sidebar.innerHTML = temasHTML;
-            console.log('✅ HTML de temas generado y renderizado. Total temas:', temas.length);
-
-            // Seleccionar el primer tema no bloqueado por defecto
-            const primerTemaNoBloqueado = temas.find(t => {
-                const locked = t.locked === 1 || t.locked === true || t.Locked === true;
-                return !locked;
-            });
-            if (primerTemaNoBloqueado) {
-                const temaId = primerTemaNoBloqueado.id || primerTemaNoBloqueado.IdTemas || primerTemaNoBloqueado.Id;
-                console.log('🎯 Seleccionando primer tema no bloqueado:', temaId);
-                await this.seleccionarTema(temaId);
-            } else {
-                console.log('⚠ No hay temas desbloqueados disponibles');
-            }
-        } catch (error) {
-            console.error('❌ Error cargando temas:', error);
-            document.getElementById('topics-sidebar').innerHTML = '<div class="text-red-500">Error cargando temas</div>';
-        }
-    }
-
-    async seleccionarTema(temaId) {
-        console.log('🎯 Seleccionando tema:', temaId);
-        const temaElement = document.querySelector(`[data-tema-id="${temaId}"]`);
-        if (!temaElement) {
-            console.log('⚠ Tema no encontrado');
-            return;
-        }
-        
-        if (temaElement.classList.contains('locked')) {
-            console.log('⚠ Tema bloqueado');
-            return;
-        }
-
-        this.currentTemaId = temaId;
-        await this.cargarProblemasTema(temaId);
-        
-        // Actualizar UI
-        document.querySelectorAll('.tema').forEach(t => t.classList.remove('active'));
-        temaElement.classList.add('active');
-        console.log('✅ Tema marcado como activo');
-    }
-
-    async cargarProblemasTema(temaId) {
-        try {
-            console.log('🔄 Cargando problemas para tema:', temaId);
-            this.problemas = await window.curriculumManager.cargarProblemas(temaId);
-            console.log('📝 Problemas cargados:', this.problemas);
-            this.renderListaProblemas();
-            
-            // Cargar el primer problema no bloqueado
-            const primerProblema = this.problemas.find(p => {
-                const locked = p.locked === 1 || p.locked === true || p.Locked === true;
-                return !locked;
-            });
-            if (primerProblema) {
-                const problemaId = primerProblema.id || primerProblema.Id || primerProblema.IdProblema;
-                console.log('🎯 Cargando primer problema no bloqueado:', problemaId);
-                await this.cargarProblema(problemaId);
-            } else if (this.problemas.length > 0) {
-                console.log('⚠ Todos los problemas están bloqueados');
-                document.getElementById('problem-title').textContent = "Problema Bloqueado";
-                document.getElementById('problem-description').innerHTML = 
-                    "<p>Completa los problemas anteriores para desbloquear este.</p>";
-            } else {
-                console.log('⚠ No hay problemas en este tema');
-            }
-        } catch (error) {
-            console.error('❌ Error cargando problemas:', error);
-        }
-    }
-
-    renderListaProblemas() {
-        const lista = document.getElementById('problems-list');
-        console.log('📍 Elemento problems-list encontrado:', !!lista);
-        
-        if (!this.problemas || this.problemas.length === 0) {
-            console.log('⚠ No hay problemas para mostrar');
-            lista.innerHTML = '<div class="text-gray-500 dark:text-slate-400 text-sm p-4">No hay problemas en este tema</div>';
-            return;
-        }
-
-        const temaElement = document.querySelector(`[data-tema-id="${this.currentTemaId}"] h4`);
-        const temaNombre = temaElement ? temaElement.textContent : "Tema";
-        
-        document.getElementById('problems-title').textContent = `Problemas - ${temaNombre}`;
-        document.getElementById('problems-count').textContent = `${this.problemas.length} problemas`;
-        
-        const currentProblemaId = this.currentProblemaId;
-        lista.innerHTML = this.problemas.map(problema => {
-            const problemaId = problema.id || problema.Id || problema.IdProblema;
-            const locked = problema.locked === 1 || problema.locked === true || problema.Locked === true;
-            const resuelto = problema.resuelto === true || problema.Resuelto === true;
-            const orden = problema.orden || problema.Orden || 0;
-            const titulo = problema.titulo || problema.Titulo || 'Sin título';
-            const dificultad = problema.dificultad || problema.Dificultad || 'Media';
-            const puntos = problema.puntos_otorgados || problema.PuntosOtorgados || 0;
-            
-            return `
-                <div class="problema-item mb-1 text-sm p-2 rounded ${locked ? 'locked' : ''} ${resuelto ? 'completed' : ''} ${problemaId === currentProblemaId ? 'active' : ''}"
-                     onclick="window.problemsRenderer.cargarProblema(${problemaId})">
-                    <div class="flex justify-between items-center">
-                        <span class="truncate">${orden}. ${titulo}</span>
-                        ${resuelto ? '<span class="text-green-500">✓</span>' : ''}
-                    </div>
-                    <div class="text-xs text-gray-500 dark:text-slate-400 mt-1">
-                        ${dificultad} • ${puntos} pts
-                    </div>
-                </div>
-            `;
-        }).join('');
-
-        console.log('✅ Lista de problemas renderizada');
-    }
-
-    async cargarProblema(problemaId) {
-        try {
-            console.log('🔄 Cargando problema:', problemaId);
-            const problema = await window.curriculumManager.obtenerProblema(problemaId);
-            console.log('📄 Problema obtenido:', problema);
-            
-            if (!problema || problema.locked) {
-                console.log('⚠ Problema bloqueado o no encontrado');
-                document.getElementById('problem-title').textContent = "Problema Bloqueado";
-                document.getElementById('problem-description').innerHTML = 
-                    "<p>Completa los problemas anteriores para desbloquear este.</p>";
-                return;
             }
 
-            this.currentProblemaId = problemaId;
-            
-            // Actualizar UI
-            document.getElementById('problem-title').textContent = problema.titulo;
-            document.getElementById('problem-description').innerHTML = `
-                <p>${problema.descripcion}</p>
-                ${problema.ejemplo ? `<p class="mt-4"><strong>Ejemplo:</strong> <code class="bg-gray-100 dark:bg-slate-700 px-2 py-1 rounded">${problema.ejemplo}</code></p>` : ''}
-                <div class="mt-4 p-3 bg-gray-50 dark:bg-slate-700 rounded-lg">
-                    <strong>Dificultad:</strong> ${problema.dificultad} • 
-                    <strong>Puntos:</strong> ${problema.puntos_otorgados}
-                </div>
-            `;
-
-            // Habilitar botones
-            document.getElementById('run-btn').disabled = false;
-            document.getElementById('verify-btn').disabled = false;
-
-            console.log('✅ Interfaz del problema actualizada');
-
-            // Cargar código en editor
+            // Load code in editor
             if (window.monacoEditor) {
-                const ultimoCodigo = problema.ultimo_codigo || problema.codigo_inicial;
-                window.monacoEditor.setValue(ultimoCodigo);
-                console.log('✅ Código cargado en editor');
+                window.monacoEditor.setValue(codigoInicial);
+                console.log('✅ Código inicial cargado en editor');
             } else {
                 console.log('⚠ Editor Monaco no está disponible');
             }
 
-            // Actualizar navegación
-            this.actualizarNavegacion();
-            this.renderListaProblemas();
+            // Enable buttons
+            const runBtn = document.getElementById('run-btn');
+            const verifyBtn = document.getElementById('verify-btn');
+            if (runBtn) runBtn.disabled = false;
+            if (verifyBtn) verifyBtn.disabled = false;
+
+            // Hide loading, show problem
+            this.hideLoading();
+            this.showProblem();
+
+            console.log('✅ Problema renderizado correctamente');
         } catch (error) {
-            console.error('❌ Error cargando problema:', error);
+            console.error('❌ Error renderizando problema:', error);
+            this.showError('Error al mostrar el problema: ' + error.message);
         }
     }
 
-    actualizarNavegacion() {
-        if (!this.problemas || this.problemas.length === 0) return;
+    hideProblemSelection() {
+        // Hide the topics sidebar and problems list
+        const topicsSidebar = document.getElementById('topics-sidebar');
+        const problemsList = document.getElementById('problems-list');
+        const problemsTitle = document.getElementById('problems-title');
         
-        const currentIndex = this.problemas.findIndex(p => {
-            const problemaId = p.id || p.Id || p.IdProblema;
-            return problemaId === this.currentProblemaId;
-        });
-        const prevBtn = document.getElementById('prev-problem-btn');
-        const nextBtn = document.getElementById('next-problem-btn');
-        
-        if (prevBtn) prevBtn.disabled = currentIndex <= 0;
-        if (nextBtn) nextBtn.disabled = currentIndex >= this.problemas.length - 1;
-        
-        const counterEl = document.getElementById('problem-counter');
-        if (counterEl) {
-            counterEl.textContent = `${currentIndex >= 0 ? currentIndex + 1 : 0}/${this.problemas.length}`;
+        if (topicsSidebar) {
+            topicsSidebar.style.display = 'none';
         }
-            
-        console.log('✅ Navegación actualizada');
+        if (problemsList) {
+            problemsList.style.display = 'none';
+        }
+        if (problemsTitle) {
+            problemsTitle.style.display = 'none';
+        }
+    }
+
+    showLoading() {
+        const problemContainer = document.getElementById('problem-container') || 
+                               document.querySelector('.problem-container') ||
+                               document.querySelector('[id*="problem"]');
+        
+        if (problemContainer) {
+            const loadingHtml = `
+                <div class="flex items-center justify-center h-64">
+                    <div class="text-center">
+                        <div class="animate-spin rounded-full h-12 w-12 border-b-2 border-indigo-600 mx-auto mb-4"></div>
+                        <p class="text-gray-600 dark:text-slate-400">Cargando problema...</p>
+                    </div>
+                </div>
+            `;
+            const problemDescEl = document.getElementById('problem-description');
+            if (problemDescEl) {
+                problemDescEl.innerHTML = loadingHtml;
+            }
+        }
+    }
+
+    hideLoading() {
+        // Loading is hidden when problem is rendered
+    }
+
+    showProblem() {
+        const problemContainer = document.getElementById('problem-container') || 
+                               document.querySelector('.problem-container');
+        if (problemContainer) {
+            problemContainer.style.display = 'block';
+        }
+    }
+
+    showError(message) {
+        const problemDescEl = document.getElementById('problem-description');
+        if (problemDescEl) {
+            problemDescEl.innerHTML = `
+                <div class="p-4 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg">
+                    <p class="text-red-800 dark:text-red-300">${message}</p>
+                    <button onclick="window.problemsRenderer.loadRandomProblem()" 
+                            class="mt-4 px-4 py-2 bg-indigo-600 text-white rounded hover:bg-indigo-700">
+                        Intentar de nuevo
+                    </button>
+                </div>
+            `;
+        }
     }
 
     async verificarSolucion() {
-        if (!this.currentProblemaId) return;
+        if (!this.currentProblemaId || !this.userId) {
+            this.showError('Por favor, espera a que se cargue el problema.');
+            return;
+        }
         
-        const codigo = window.monacoEditor.getValue();
-        const resultado = await window.curriculumManager.verificarSolucion(codigo, this.currentProblemaId);
+        const outputContent = document.getElementById('output-content');
+        if (outputContent) {
+            outputContent.textContent = "Verificando solución...";
+            outputContent.classList.remove('text-green-600', 'text-red-600');
+        }
         
-        document.getElementById('output-content').textContent = resultado.mensaje;
-        
-        if (resultado.correcto) {
-            document.getElementById('output-content').classList.add('text-green-600');
-            document.getElementById('output-content').classList.remove('text-red-600');
-            await this.cargarProblemasTema(this.currentTemaId);
-        } else {
-            document.getElementById('output-content').classList.add('text-red-600');
-            document.getElementById('output-content').classList.remove('text-green-600');
+        try {
+            const codigo = window.monacoEditor?.getValue() || '';
+            if (!codigo.trim()) {
+                if (outputContent) {
+                    outputContent.textContent = "Por favor, escribe algún código antes de verificar.";
+                    outputContent.classList.add('text-red-600');
+                }
+                return;
+            }
+
+            const resultado = await window.curriculumManager.verificarSolucion(codigo, this.currentProblemaId);
+            
+            if (outputContent) {
+                outputContent.textContent = resultado.mensaje || resultado.message || "Resultado desconocido";
+                
+                if (resultado.correcto || resultado.IsCorrect) {
+                    outputContent.classList.add('text-green-600');
+                    outputContent.classList.remove('text-red-600');
+                    
+                    // Show success message with points
+                    if (resultado.puntosOtorgados || resultado.PuntosOtorgados) {
+                        const puntos = resultado.puntosOtorgados || resultado.PuntosOtorgados;
+                        outputContent.textContent += ` (+${puntos} puntos)`;
+                    }
+                    
+                    // Disable verify button temporarily
+                    const verifyBtn = document.getElementById('verify-btn');
+                    if (verifyBtn) {
+                        verifyBtn.disabled = true;
+                    }
+                    
+                    // Load a new random problem after a delay
+                    setTimeout(async () => {
+                        await this.loadRandomProblem();
+                        if (verifyBtn) {
+                            verifyBtn.disabled = false;
+                        }
+                    }, 2000);
+                } else {
+                    outputContent.classList.add('text-red-600');
+                    outputContent.classList.remove('text-green-600');
+                }
+            }
+        } catch (error) {
+            console.error('Error verificando solución:', error);
+            if (outputContent) {
+                outputContent.textContent = `Error: ${error.message || 'Error desconocido al verificar la solución.'}`;
+                outputContent.classList.add('text-red-600');
+                outputContent.classList.remove('text-green-600');
+            }
         }
     }
 
     async ejecutarCodigo() {
         if (!this.currentProblemaId) {
-            document.getElementById('output-content').textContent = "Por favor, selecciona un problema primero.";
+            const outputContent = document.getElementById('output-content');
+            if (outputContent) {
+                outputContent.textContent = "Por favor, espera a que se cargue el problema.";
+            }
             return;
         }
 
         const outputContent = document.getElementById('output-content');
-        outputContent.textContent = "Ejecutando código...";
-        outputContent.classList.remove('text-green-600', 'text-red-600');
+        if (outputContent) {
+            outputContent.textContent = "Ejecutando código...";
+            outputContent.classList.remove('text-green-600', 'text-red-600');
+        }
         
         try {
             const codigo = window.monacoEditor?.getValue() || '';
             const language = window.currentLanguage || document.getElementById('language-selector')?.value || 'python';
-            const userId = sessionStorage.getItem('userId') ? parseInt(sessionStorage.getItem('userId')) : null;
+            const userId = this.userId || (sessionStorage.getItem('userId') ? parseInt(sessionStorage.getItem('userId')) : null);
             
             if (!codigo.trim()) {
-                outputContent.textContent = "Por favor, escribe algún código antes de ejecutar.";
+                if (outputContent) {
+                    outputContent.textContent = "Por favor, escribe algún código antes de ejecutar.";
+                }
                 return;
             }
 
             const resultado = await window.api.executeCode(codigo, language, userId);
             
-            if (resultado.success) {
-                outputContent.textContent = resultado.output || 'Código ejecutado correctamente.';
-                outputContent.classList.add('text-green-600');
-                outputContent.classList.remove('text-red-600');
-                
-                // Show achievement popup if granted
-                if (resultado.achievementGranted) {
-                    await showAchievementPopup('Tu primer código', 'Has ejecutado tu primer código. ¡El inicio de una gran aventura!', 'fa-code');
+            if (outputContent) {
+                if (resultado.success) {
+                    outputContent.textContent = resultado.output || 'Código ejecutado correctamente.';
+                    outputContent.classList.add('text-green-600');
+                    outputContent.classList.remove('text-red-600');
+                    
+                    // Show achievement popup if granted
+                    if (resultado.achievementGranted) {
+                        await showAchievementPopup('Tu primer código', 'Has ejecutado tu primer código. ¡El inicio de una gran aventura!', 'fa-code');
+                    }
+                } else {
+                    outputContent.textContent = resultado.output || resultado.message || 'Error al ejecutar el código.';
+                    outputContent.classList.add('text-red-600');
+                    outputContent.classList.remove('text-green-600');
                 }
-            } else {
-                outputContent.textContent = resultado.output || resultado.message || 'Error al ejecutar el código.';
-                outputContent.classList.add('text-red-600');
-                outputContent.classList.remove('text-green-600');
             }
         } catch (error) {
             console.error('Error ejecutando código:', error);
-            outputContent.textContent = `Error: ${error.message || 'Error desconocido al ejecutar el código.'}`;
-            outputContent.classList.add('text-red-600');
-            outputContent.classList.remove('text-green-600');
-        }
-    }
-
-    cargarProblemaAnterior() {
-        if (!this.problemas || this.problemas.length === 0) return;
-        const currentIndex = this.problemas.findIndex(p => {
-            const problemaId = p.id || p.Id || p.IdProblema;
-            return problemaId === this.currentProblemaId;
-        });
-        if (currentIndex > 0) {
-            const problemaAnterior = this.problemas[currentIndex - 1];
-            const problemaId = problemaAnterior.id || problemaAnterior.Id || problemaAnterior.IdProblema;
-            this.cargarProblema(problemaId);
-        }
-    }
-
-    cargarProblemaSiguiente() {
-        if (!this.problemas || this.problemas.length === 0) return;
-        const currentIndex = this.problemas.findIndex(p => {
-            const problemaId = p.id || p.Id || p.IdProblema;
-            return problemaId === this.currentProblemaId;
-        });
-        if (currentIndex < this.problemas.length - 1) {
-            const problemaSiguiente = this.problemas[currentIndex + 1];
-            const problemaId = problemaSiguiente.id || problemaSiguiente.Id || problemaSiguiente.IdProblema;
-            this.cargarProblema(problemaId);
+            if (outputContent) {
+                outputContent.textContent = `Error: ${error.message || 'Error desconocido al ejecutar el código.'}`;
+                outputContent.classList.add('text-red-600');
+                outputContent.classList.remove('text-green-600');
+            }
         }
     }
 }
 
-// Crear instancia global
+// Create global instance
 window.problemsRenderer = new ProblemsRenderer();

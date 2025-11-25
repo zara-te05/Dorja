@@ -7,6 +7,17 @@
   <title>Problemas - Dorja</title>
   <link href="css/output.css" rel="stylesheet">
   <style>
+    html, body {
+      height: 100%;
+      overflow-y: auto; /* Cambiado de scroll a auto para mostrar solo cuando sea necesario */
+      overflow-x: hidden;
+    }
+
+    body {
+      position: relative;
+      min-height: 100vh;
+    }
+
     .tema {
       border-left: 4px solid #4f46e5;
       transition: all 0.3s ease;
@@ -75,11 +86,54 @@
       display: block !important;
       visibility: visible !important;
       opacity: 1 !important;
+      overflow-y: auto; /* Añadido para permitir scroll */
     }
 
     .tema {
       display: block;
       visibility: visible;
+    }
+
+    /* Estilos adicionales para asegurar que las barras de desplazamiento funcionen */
+    .fixed.top-\[65px\] {
+      height: calc(100vh - 65px);
+      overflow-y: auto; /* Añadido para permitir scroll en el contenedor principal */
+    }
+
+    .flex-1.overflow-y-auto {
+      overflow-y: auto !important; /* Asegurar que los contenedores con esta clase tengan scroll */
+    }
+
+    /* Estilo para las barras de desplazamiento */
+    ::-webkit-scrollbar {
+      width: 8px;
+    }
+
+    ::-webkit-scrollbar-track {
+      background: #f1f1f1;
+      border-radius: 4px;
+    }
+
+    ::-webkit-scrollbar-thumb {
+      background: #c1c1c1;
+      border-radius: 4px;
+    }
+
+    ::-webkit-scrollbar-thumb:hover {
+      background: #a8a8a8;
+    }
+
+    /* Estilos para modo oscuro */
+    .dark ::-webkit-scrollbar-track {
+      background: #374151;
+    }
+
+    .dark ::-webkit-scrollbar-thumb {
+      background: #6b7280;
+    }
+
+    .dark ::-webkit-scrollbar-thumb:hover {
+      background: #9ca3af;
     }
   </style>
 </head>
@@ -110,7 +164,7 @@
     </div>
   </header>
 
-  <div class="fixed top-[65px] left-0 w-full h-[calc(100vh-65px)] p-4 sm:p-6 lg:p-8">
+  <div class="fixed top-[65px] left-0 w-full h-[calc(100vh-65px)] p-4 sm:p-6 lg:p-8 overflow-y-auto">
     <div class="grid lg:grid-cols-6 gap-6 h-full">
       <!-- Sidebar de Temas -->
       <div
