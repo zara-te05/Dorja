@@ -2,7 +2,7 @@
 
 <div align="center">
 
-![Dorja Logo](https://media4.giphy.com/media/v1.Y2lkPTc5MGI3NjExZW1lbndrZWsxam1laTlvYXU3NG91bnBhZGxpeG9qM2gyOTZpOWw4ZSZlcD12MV9pbnRlcm5hbF9naWZfYnlfaWQmY3Q9Zw/kmRdfWJ4PGmBxiu6hc/giphy.gif)
+<img src="https://media4.giphy.com/media/v1.Y2lkPTc5MGI3NjExZW1lbndrZWsxam1laTlvYXU3NG91bnBhZGxpeG9qM2gyOTZpOWw4ZSZlcD12MV9pbnRlcm5hbF9naWZfYnlfaWQmY3Q9Zw/kmRdfWJ4PGmBxiu6hc/giphy.gif" width="150">
 
 **Una plataforma educativa interactiva para aprender programación de manera práctica y divertida**
 
