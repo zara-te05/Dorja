@@ -2,7 +2,7 @@
 
 <div align="center">
 
-![Dorja Logo](https://via.placeholder.com/200x200/6366f1/ffffff?text=DORJA)
+![Dorja Logo](https://imgur.com/a/m4jlSgt)
 
 **Una plataforma educativa interactiva para aprender programación de manera práctica y divertida**
 
