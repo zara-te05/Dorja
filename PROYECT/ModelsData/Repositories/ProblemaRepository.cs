@@ -43,31 +43,6 @@ namespace DorjaData.Repositories
             return await db.QueryFirstOrDefaultAsync<Problema>(sql, new { Id = id });
         }
 
-        // Obtener problemas por tema
-        public async Task<IEnumerable<Problema>> GetProblemasByTema(int temaId)
-        {
-            var db = dbConnection();
-            var sql = @"SELECT id as Id, tema_id as TemaId, titulo as Titulo, descripcion as Descripcion, 
-                       ejemplo as Ejemplo, dificultad as Dificultad, codigo_inicial as CodigoInicial, 
-                       solucion as Solucion, orden as Orden, locked as Locked, puntos_otorgados as PuntosOtorgados 
-                       FROM problemas WHERE tema_id = @TemaId ORDER BY orden";
-            return await db.QueryAsync<Problema>(sql, new { TemaId = temaId });
-        }
-
-        // Obtener problemas por nivel (a través de temas)
-        public async Task<IEnumerable<Problema>> GetProblemasByNivel(int nivelId)
-        {
-            var db = dbConnection();
-            var sql = @"SELECT p.id as Id, p.tema_id as TemaId, p.titulo as Titulo, p.descripcion as Descripcion, 
-                       p.ejemplo as Ejemplo, p.dificultad as Dificultad, p.codigo_inicial as CodigoInicial, 
-                       p.solucion as Solucion, p.orden as Orden, p.locked as Locked, p.puntos_otorgados as PuntosOtorgados 
-                       FROM problemas p
-                       INNER JOIN temas t ON p.tema_id = t.id
-                       WHERE t.nivel_id = @NivelId
-                       ORDER BY t.orden, p.orden";
-            return await db.QueryAsync<Problema>(sql, new { NivelId = nivelId });
-        }
-
         // Insertar un nuevo problema
         public async Task<bool> InsertProblemas(Problema problema)
         {

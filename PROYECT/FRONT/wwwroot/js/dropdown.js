@@ -12,7 +12,7 @@ document.addEventListener('DOMContentLoaded', () => {
             event.stopPropagation(); 
             toggleMenu();
             
-            // Close notifications menu if it's open
+            // Cerrar menú de notificaciones si está abierto
             const notificationsMenu = document.getElementById('notifications-menu');
             if (notificationsMenu && !notificationsMenu.classList.contains('hidden')) {
                 notificationsMenu.classList.add('hidden');

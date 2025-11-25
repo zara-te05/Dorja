@@ -1,26 +1,26 @@
-﻿// Ensure window.api is only defined once
+﻿// Asegurar que window.api solo se defina una vez
 if (typeof window.api === 'undefined') {
-// Check if we're in Electron or web browser
+// Verificar si estamos en Electron o navegador web
 const isElectron = typeof window !== 'undefined' && (window.electronAPI || (window.process && window.process.type));
 
 window.api = {
     baseUrl: 'http://localhost:5222/api',
 
-    // Helper method for making API calls
+    // Método auxiliar para realizar llamadas a la API
     async _makeRequest(endpoint, options = {}) {
         try {
-            // Ensure we're using HTTP, not HTTPS
+            // Asegurar que estamos usando HTTP, no HTTPS
             let url = `${this.baseUrl}${endpoint}`;
-            // Force HTTP protocol if somehow HTTPS got in there
+            // Forzar protocolo HTTP si de alguna manera HTTPS se coló
             if (url.startsWith('https://')) {
                 url = url.replace('https://', 'http://');
             }
-            // Ensure it starts with http://
+            // Asegurar que comience con http://
             if (!url.startsWith('http://') && !url.startsWith('https://')) {
                 url = `http://${url}`;
             }
 
-            console.log('🌐 Making API request to:', url);
+            console.log('Making API request to:', url);
 
             const response = await fetch(url, {
                 method: options.method || 'GET',
@@ -32,43 +32,13 @@ window.api = {
                 body: options.body ? JSON.stringify(options.body) : undefined
             });
 
-            let result = null;
-            let responseText = '';
-            try {
-                responseText = await response.text();
-                if (responseText && responseText.trim().length > 0) {
-                    result = JSON.parse(responseText);
-                }
-            } catch (e) {
-                console.warn('Could not parse JSON response:', e);
-                // If it's not JSON, try to return the text as message
-                if (responseText && responseText.trim().length > 0) {
-                    result = { message: responseText };
-                }
-            }
-            
-            console.log('📥 API Response:', { status: response.status, result });
+            const result = await response.json().catch(() => null);
 
             if (!response.ok) {
-                const errorMsg = result?.message || result?.Message || `Error ${response.status}: ${response.statusText}`;
-                console.error('❌ API Error:', errorMsg);
-                console.error('Full error response:', result);
-                throw new Error(errorMsg);
+                throw new Error(result?.message || `Error ${response.status}: ${response.statusText}`);
             }
 
-            // Handle different response types
-            // For Exercise endpoints, the result is the problem object directly
-            if (endpoint.includes('/Exercise/')) {
-                // Exercise endpoints return the object directly
-                if (result && (result.id || result.Id || result.titulo || result.Titulo || result.problemasCompletados !== undefined || result.ProblemasCompletados !== undefined)) {
-                    return { success: true, data: result };
-                }
-                // If result is already wrapped, return as is
-                if (result && result.data) {
-                    return { success: true, data: result.data, ...result };
-                }
-            }
-            
+            // Manejar diferentes tipos de respuesta
             if (Array.isArray(result)) {
                 return { success: true, data: result };
             } else if (result && typeof result === 'object') {
@@ -77,10 +47,10 @@ window.api = {
                 return { success: true, data: result };
             }
         } catch (error) {
-            console.error(`❌ Error en API ${endpoint}:`, error);
+            console.error(`Error en API ${endpoint}:`, error);
             let errorMessage = error.message || 'Error de conexión con el servidor';
             
-            // Provide more helpful error messages
+            // Proporcionar mensajes de error más útiles
             if (error.message && error.message.includes('SSL') || error.message.includes('HTTPS')) {
                 errorMessage = 'Error: El servidor está configurado para HTTP, no HTTPS. Verifica que el backend esté ejecutándose en http://localhost:5222';
             } else if (error.message && error.message.includes('Failed to fetch')) {
@@ -102,7 +72,7 @@ window.api = {
     },
 
     login: async (data) => {
-        // Backend now supports both username and email
+        // El backend ahora soporta tanto nombre de usuario como email
         const loginData = {
             username: data.username,
             password: data.password
@@ -124,14 +94,14 @@ window.api = {
     getUserById: async (userId) => {
         const result = await window.api._makeRequest(`/Users/${userId}`);
         const user = result.data || result;
-        console.log('getUserById response:', user); // Debug log
-        console.log('ProfilePhotoPath in response:', user?.profilePhotoPath); // Debug log
-        console.log('CoverPhotoPath in response:', user?.coverPhotoPath); // Debug log
+        console.log('getUserById response:', user); // Registro de depuración
+        console.log('ProfilePhotoPath in response:', user?.profilePhotoPath); // Registro de depuración
+        console.log('CoverPhotoPath in response:', user?.coverPhotoPath); // Registro de depuración
         return user;
     },
 
     updateUserProfile: async (data) => {
-        // First get the current user to merge data and preserve photo paths
+        // Primero obtener el usuario actual para fusionar datos y preservar rutas de fotos
         const currentUser = await window.api.getUserById(data.userId);
         if (!currentUser) {
             return { success: false, message: 'Usuario no encontrado' };
@@ -144,12 +114,12 @@ window.api = {
             nombre: currentUser.nombre || '',
             apellidoPaterno: currentUser.apellidoPaterno || '',
             apellidoMaterno: currentUser.apellidoMaterno || '',
-            password: currentUser.password || '', // Preserve password
+            password: currentUser.password || '', // Preservar contraseña
             fechaRegistro: currentUser.fechaRegistro || new Date().toISOString(),
             ultimaConexion: currentUser.ultimaConexion || null,
             puntosTotales: currentUser.puntosTotales || 0,
             nivelActual: currentUser.nivelActual || 1,
-            // CRITICAL: Preserve photo paths from database, not from stale currentUser object
+            // CRÍTICO: Preservar rutas de fotos desde la base de datos, no desde el objeto currentUser obsoleto
             profilePhotoPath: currentUser.profilePhotoPath || '',
             coverPhotoPath: currentUser.coverPhotoPath || ''
         };
@@ -162,15 +132,15 @@ window.api = {
 
 
     deleteUserAccount: async (data) => {
-        // First verify password by attempting login
+        // Primero verificar contraseña intentando iniciar sesión
         const user = await window.api.getUserById(data.userId);
         if (!user) {
             return { success: false, message: 'Usuario no encontrado' };
         }
 
-        // Verify password
+        // Verificar contraseña
         const loginResult = await window.api.login({
-            username: user.email, // Use email for login verification
+            username: user.email, // Usar email para verificación de inicio de sesión
             password: data.password
         });
 
@@ -178,7 +148,7 @@ window.api = {
             return { success: false, message: 'Contraseña incorrecta' };
         }
 
-        // If password is correct, delete the account
+        // Si la contraseña es correcta, eliminar la cuenta
         const result = await window.api._makeRequest(`/Users?id=${data.userId}`, {
             method: 'DELETE'
         });
@@ -190,20 +160,20 @@ window.api = {
 
     saveImage: async (data) => {
         try {
-            // Convert data URL to blob
+            // Convertir data URL a blob
             const response = await fetch(data.dataUrl);
             const blob = await response.blob();
             
-            // Create FormData
+            // Crear FormData
             const formData = new FormData();
             formData.append('file', blob, `image.${blob.type.split('/')[1]}`);
             formData.append('imageType', data.imageType);
 
-            // Use window.api.baseUrl instead of this.baseUrl
+            // Usar window.api.baseUrl en lugar de this.baseUrl
             const baseUrl = window.api.baseUrl || 'http://localhost:5222/api';
             const uploadUrl = `${baseUrl}/Users/${data.userId}/upload-image`;
             
-            console.log('Uploading image to:', uploadUrl); // Debug log
+            console.log('Uploading image to:', uploadUrl); // Registro de depuración
 
             const uploadResponse = await fetch(uploadUrl, {
                 method: 'POST',
@@ -216,7 +186,7 @@ window.api = {
                 throw new Error(result?.message || `Error ${uploadResponse.status}: ${uploadResponse.statusText}`);
             }
 
-            console.log('Image upload successful:', result); // Debug log
+            console.log('Image upload successful:', result); // Registro de depuración
             return { success: true, message: result.message || 'Imagen guardada exitosamente', path: result.path };
         } catch (error) {
             console.error('Error al guardar la imagen:', error);
@@ -224,14 +194,14 @@ window.api = {
         }
     },
 
-    // Save image as BLOB in database
+    // Guardar imagen como BLOB en la base de datos
     saveImageAsBlob: async (data) => {
         try {
-            // Convert data URL to blob
+            // Convertir data URL a blob
             const response = await fetch(data.dataUrl);
             const blob = await response.blob();
             
-            // Create FormData
+            // Crear FormData
             const formData = new FormData();
             formData.append('file', blob, `image.${blob.type.split('/')[1]}`);
             formData.append('imageType', data.imageType);
@@ -260,7 +230,7 @@ window.api = {
         }
     },
 
-    // Get image from BLOB in database
+    // Obtener imagen desde BLOB en la base de datos
     getImageBlob: async (userId, imageType) => {
         try {
             const baseUrl = window.api.baseUrl || 'http://localhost:5222/api';
@@ -270,12 +240,12 @@ window.api = {
             
             if (!response.ok) {
                 if (response.status === 404) {
-                    return null; // Image not found
+                    return null; // Imagen no encontrada
                 }
                 throw new Error(`Error ${response.status}: ${response.statusText}`);
             }
 
-            // Return the blob URL
+            // Devolver la URL del blob
             const blob = await response.blob();
             return URL.createObjectURL(blob);
         } catch (error) {
@@ -285,7 +255,7 @@ window.api = {
     },
 
     executePython: async (code) => {
-        // Legacy method - redirects to executeCode
+        // Método heredado - redirige a executeCode
         return await window.api.executeCode(code, 'python');
     },
 
@@ -306,12 +276,12 @@ window.api = {
         };
     },
 
-    // Curriculum-related APIs
+    // APIs relacionadas con el currículum
     cargarTemas: async (userId, nivelId = null) => {
         const result = await window.api._makeRequest('/Temas');
         let temas = [];
         
-        // The API returns data directly, not wrapped in a data property
+        // La API devuelve datos directamente, no envueltos en una propiedad data
         if (Array.isArray(result)) {
             temas = result;
         } else {
@@ -332,11 +302,11 @@ window.api = {
     },
 
     cargarProblemas: async (userId, temaId) => {
-        // Get all problems and filter by temaId, or use a specific endpoint if available
+        // Obtener todos los problemas y filtrar por temaId, o usar un endpoint específico si está disponible
         const result = await window.api._makeRequest('/Problemas');
         let problems = [];
         
-        // Handle different response formats
+        // Manejar diferentes formatos de respuesta
         if (Array.isArray(result)) {
             problems = result;
         } else if (result.data && Array.isArray(result.data)) {
@@ -345,7 +315,7 @@ window.api = {
             problems = result.data;
         }
         
-        // Filter by temaId if the backend doesn't have a specific endpoint
+        // Filtrar por temaId si el backend no tiene un endpoint específico
         if (problems.length > 0) {
             return problems.filter(p => p.temaId === temaId || p.tema_id === temaId || p.TemaId === temaId);
         }
@@ -354,7 +324,7 @@ window.api = {
 
     obtenerProblema: async (problemaId) => {
         const result = await window.api._makeRequest(`/Problemas/${problemaId}`);
-        // Handle different response formats
+        // Manejar diferentes formatos de respuesta
         if (result && typeof result === 'object' && !result.success) {
             return result;
         }
@@ -362,8 +332,8 @@ window.api = {
     },
 
     verificarSolucion: async (userId, codigo, problemaId) => {
-        // This would need a backend endpoint for solution verification
-        // For now, return a placeholder
+        // Esto necesitaría un endpoint del backend para verificación de solución
+        // Por ahora, devolver un marcador de posición
         return {
             correcto: false,
             mensaje: 'Verificación de solución requiere implementación en el backend'
@@ -371,15 +341,15 @@ window.api = {
     },
 
     marcarProblemaCompletado: async (userId, problemaId, codigo) => {
-        // This would need a backend endpoint for marking problems as completed
-        // For now, return a placeholder
+        // Esto necesitaría un endpoint del backend para marcar problemas como completados
+        // Por ahora, devolver un marcador de posición
         return {
             success: false,
             message: 'Marcar problema como completado requiere implementación en el backend'
         };
     },
 
-    // Progress and curriculum APIs
+    // APIs de progreso y currículum
     getAllNiveles: async () => {
         const result = await window.api._makeRequest('/Niveles');
         return result.data || result;
@@ -395,7 +365,7 @@ window.api = {
         return result.data || result;
     },
 
-    // Achievements/Logros APIs
+    // APIs de Logros/Logros
     getAllLogros: async () => {
         const result = await window.api._makeRequest('/Logros');
         return result.data || result;
@@ -417,53 +387,6 @@ window.api = {
             body: { UserId: userId, LogroId: logroId }
         });
         return result;
-    },
-
-    // Exercise APIs
-    getRandomProblem: async (userId) => {
-        const result = await window.api._makeRequest(`/Exercise/random/${userId}`);
-        return result.data || result;
-    },
-
-    getNextProblem: async (userId) => {
-        try {
-            const result = await window.api._makeRequest(`/Exercise/next/${userId}`);
-            console.log('📥 Respuesta completa de getNextProblem:', result);
-            
-            // Handle different response formats
-            if (result.success && result.data) {
-                return result.data;
-            } else if (result.data) {
-                return result.data;
-            } else if (result.id || result.Id) {
-                // Direct problem object
-                return result;
-            } else {
-                console.error('❌ Formato de respuesta inesperado:', result);
-                return null;
-            }
-        } catch (error) {
-            console.error('❌ Error en getNextProblem:', error);
-            throw error;
-        }
-    },
-
-    getUserProgress: async (userId) => {
-        const result = await window.api._makeRequest(`/Exercise/progress/${userId}`);
-        return result.data || result;
-    },
-
-    validateSolution: async (userId, problemaId, codigo, language = 'python') => {
-        const result = await window.api._makeRequest('/Exercise/validate', {
-            method: 'POST',
-            body: {
-                UserId: userId,
-                ProblemaId: problemaId,
-                Codigo: codigo,
-                Language: language
-            }
-        });
-        return result.data || result;
     }
 };
-} // End of window.api definition check
+} // Fin de la verificación de definición de window.api

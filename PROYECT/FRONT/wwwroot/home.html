@@ -339,7 +339,7 @@
     <script src="./js/renderer.js"></script>
     <script src="./js/dropdown.js"></script>
     <script>
-        // Visual-enhancement JS: theme toggle, greeting, random knowledge
+        // JS de mejora visual: alternar tema, saludo, conocimiento aleatorio
         document.addEventListener('DOMContentLoaded', () => {
             // Verificar autenticación
             const userId = sessionStorage.getItem('userId');
@@ -352,7 +352,7 @@
             const themeIcon = document.getElementById('theme-icon');
             const themeText = document.getElementById('theme-text');
 
-            // Theme helper
+            // Ayudante de tema
             const applyTheme = (isDark) => {
                 document.documentElement.classList.toggle('dark', isDark);
                 localStorage.setItem('theme', isDark ? 'dark' : 'light');
@@ -379,7 +379,7 @@
                 });
             }
 
-            // Greeting
+            // Saludo
             const hour = new Date().getHours();
             let greeting = 'Bienvenido';
             if (hour < 12) greeting = 'Buenos días';

@@ -40,14 +40,39 @@ namespace BACK.Services
             }
 
             int nivelActual = user.NivelActual;
+            
+            // If user level is 0 or invalid, default to level 1
+            if (nivelActual <= 0)
+            {
+                nivelActual = 1;
+                Console.WriteLine($"Warning: User {userId} has invalid level, defaulting to level 1");
+            }
 
             // Get all problems for the user's current level
             var problemasNivel = await _problemaRepository.GetProblemasByNivel(nivelActual);
             var problemasList = problemasNivel.ToList();
 
+            Console.WriteLine($"User {userId} level: {nivelActual}, Problems found: {problemasList.Count}");
+
+            // If no problems for current level, try level 1 as fallback
+            if (problemasList.Count == 0 && nivelActual != 1)
+            {
+                Console.WriteLine($"No problems found for level {nivelActual}, trying level 1");
+                problemasNivel = await _problemaRepository.GetProblemasByNivel(1);
+                problemasList = problemasNivel.ToList();
+            }
+
+            // If still no problems, try getting all problems regardless of level
             if (problemasList.Count == 0)
             {
-                throw new Exception("No hay problemas disponibles para tu nivel actual");
+                Console.WriteLine($"No problems found for any level, trying all problems");
+                var allProblemas = await _problemaRepository.GetAllProblemas();
+                problemasList = allProblemas.ToList();
+            }
+
+            if (problemasList.Count == 0)
+            {
+                throw new Exception("No hay problemas disponibles en el sistema. Por favor, contacta al administrador.");
             }
 
             // Get user's completed problems
@@ -62,17 +87,36 @@ namespace BACK.Services
                 .Where(p => !completedProblemaIds.Contains(p.Id) && !p.Locked)
                 .ToList();
 
+            Console.WriteLine($"Available problems (not completed, not locked): {availableProblemas.Count}");
+
             // If all problems are completed, allow repeating (for practice)
             if (availableProblemas.Count == 0)
             {
+                Console.WriteLine("All problems completed, allowing repeats");
                 availableProblemas = problemasList
                     .Where(p => !p.Locked)
                     .ToList();
             }
 
+            // If still no problems, try unlocked problems even if completed
             if (availableProblemas.Count == 0)
             {
-                throw new Exception("No hay problemas disponibles. Todos están bloqueados.");
+                Console.WriteLine("Trying unlocked problems even if completed");
+                availableProblemas = problemasList
+                    .Where(p => !p.Locked)
+                    .ToList();
+            }
+
+            // Last resort: return any problem (even locked ones) if nothing else available
+            if (availableProblemas.Count == 0)
+            {
+                Console.WriteLine("Warning: No unlocked problems, returning any problem");
+                availableProblemas = problemasList;
+            }
+
+            if (availableProblemas.Count == 0)
+            {
+                throw new Exception("No hay problemas disponibles en el sistema. Por favor, contacta al administrador.");
             }
 
             // Select a random problem
@@ -83,11 +127,55 @@ namespace BACK.Services
         }
 
         /// <summary>
+        /// Gets user's progress statistics
+        /// </summary>
+        public async Task<UserProgressStats> GetUserProgress(int userId)
+        {
+            try
+            {
+                var progresos = await _progresoProblemaRepository.GetByUserId(userId);
+                var progresosList = progresos.ToList();
+
+                var totalProblemas = (int)(await _problemaRepository.GetAllProblemas()).Count();
+                var completedProblemas = (int)progresosList.Count(p => p.Completado);
+                var totalIntentos = (int)progresosList.Sum(p => (long)p.Intentos);
+                var totalPuntos = (int)progresosList.Where(p => p.Completado).Sum(p => (long)p.Puntuacion);
+                var promedioIntentos = completedProblemas > 0 ? (double)totalIntentos / completedProblemas : 0;
+
+                return new UserProgressStats
+                {
+                    TotalProblemas = totalProblemas,
+                    ProblemasCompletados = completedProblemas,
+                    ProblemasPendientes = totalProblemas - completedProblemas,
+                    TotalIntentos = totalIntentos,
+                    PromedioIntentos = Math.Round(promedioIntentos, 2),
+                    TotalPuntos = totalPuntos,
+                    TiempoPromedioResolucion = 0,
+                    PorcentajeCompletado = totalProblemas > 0 ? Math.Round((double)completedProblemas / totalProblemas * 100, 2) : 0
+                };
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"Error in GetUserProgress: {ex.Message}");
+                Console.WriteLine($"Stack trace: {ex.StackTrace}");
+                throw;
+            }
+        }
+
+        /// <summary>
         /// Validates a solution by executing both the user's code and the solution code,
         /// then comparing their outputs
         /// </summary>
         public async Task<ValidationResult> ValidateSolution(int userId, int problemaId, string codigo, string language = "python")
         {
+            // Validate user exists
+            var user = await _userRepository.GetDetails(userId);
+            if (user == null)
+            {
+                return new ValidationResult { IsCorrect = false, Message = "Usuario no encontrado" };
+            }
+
+            // Validate problem exists
             var problema = await _problemaRepository.GetDetails(problemaId);
             if (problema == null)
             {
@@ -115,7 +203,14 @@ namespace BACK.Services
             if (!solutionResult.Success)
             {
                 // If solution code has errors, fall back to string comparison
-                return ValidateByStringComparison(codigo, problema.Solucion);
+                bool isValid = ValidateByStringComparison(codigo, problema.Solucion);
+                await UpdateProgress(userId, problemaId, codigo, isValid, problema.PuntosOtorgados);
+                return new ValidationResult
+                {
+                    IsCorrect = isValid,
+                    Message = isValid ? "¡Correcto! Solución validada por comparación de código." : "Incorrecto. Revisa tu código.",
+                    PuntosOtorgados = isValid ? problema.PuntosOtorgados : 0
+                };
             }
 
             // Compare outputs (normalized)
@@ -398,6 +493,21 @@ namespace BACK.Services
 
         private async Task UpdateProgress(int userId, int problemaId, string codigo, bool isCorrect, int puntosOtorgados)
         {
+            // Validate that user and problem exist before inserting
+            var user = await _userRepository.GetDetails(userId);
+            if (user == null)
+            {
+                Console.WriteLine($"Warning: User {userId} not found, skipping progress update");
+                return;
+            }
+
+            var problema = await _problemaRepository.GetDetails(problemaId);
+            if (problema == null)
+            {
+                Console.WriteLine($"Warning: Problem {problemaId} not found, skipping progress update");
+                return;
+            }
+
             var progreso = await _progresoProblemaRepository.GetByUserAndProblema(userId, problemaId);
             
             if (progreso == null)
@@ -413,7 +523,17 @@ namespace BACK.Services
                     UltimoCodigo = codigo,
                     FechaCompletado = isCorrect ? DateTime.UtcNow : (DateTime?)null
                 };
-                await _progresoProblemaRepository.InsertProgreso_Problemas(progreso);
+                
+                try
+                {
+                    await _progresoProblemaRepository.InsertProgreso_Problemas(progreso);
+                }
+                catch (Exception ex)
+                {
+                    Console.WriteLine($"Error inserting progress: {ex.Message}");
+                    Console.WriteLine($"User ID: {userId}, Problem ID: {problemaId}");
+                    // Don't throw - just log the error and continue
+                }
             }
             else
             {
@@ -443,6 +563,18 @@ namespace BACK.Services
                 await _userRepository.UpdateUsuarios(user);
             }
         }
+    }
+
+    public class UserProgressStats
+    {
+        public int TotalProblemas { get; set; }
+        public int ProblemasCompletados { get; set; }
+        public int ProblemasPendientes { get; set; }
+        public int TotalIntentos { get; set; }
+        public double PromedioIntentos { get; set; }
+        public int TotalPuntos { get; set; }
+        public double TiempoPromedioResolucion { get; set; }
+        public double PorcentajeCompletado { get; set; }
     }
 
     public class ValidationResult
