@@ -1,14 +1,14 @@
-// Helper function to set profile image
+// Función auxiliar para establecer imagen de perfil
 function setProfileImage(imgElement, user) {
     if (!imgElement || !user) return;
     
     const initial = user.username ? user.username.charAt(0).toUpperCase() : 'U';
     
     if (user.profilePhotoPath && user.profilePhotoPath.trim() !== '') {
-        // Use backend URL for images
+        // Usar URL del backend para imágenes
         imgElement.src = `http://localhost:5222${user.profilePhotoPath}`;
         imgElement.onerror = () => {
-            // If image fails, show initial as text
+            // Si la imagen falla, mostrar inicial como texto
             const container = imgElement.parentElement;
             if (container) {
                 imgElement.style.display = 'none';
@@ -19,7 +19,7 @@ function setProfileImage(imgElement, user) {
             }
         };
     } else {
-        // Show initial as text instead of placeholder
+        // Mostrar inicial como texto en lugar de marcador de posición
         imgElement.style.display = 'none';
         const container = imgElement.parentElement;
         if (container) {
@@ -36,7 +36,7 @@ async function initializeHomePage() {
     const userId = sessionStorage.getItem('userId');
     const usernameDisplay = document.getElementById('username-display');
     const userAvatar = document.querySelector('#user-menu-button img');
-    // Try multiple selectors for hero profile image
+    // Intentar múltiples selectores para la imagen de perfil del héroe
     const heroProfileImage = document.querySelector('main section img[alt="Foto de perfil"]') || 
                              document.querySelector('main .lg\\:col-span-2 img') ||
                              document.querySelector('main section img');
@@ -54,12 +54,12 @@ async function initializeHomePage() {
                 usernameDisplay.textContent = user.username;
             }
             
-            // Set avatar in dropdown menu
+            // Establecer avatar en el menú desplegable
             if (userAvatar) {
                 setProfileImage(userAvatar, user);
             }
             
-            // Set profile image in hero section (the large image)
+            // Establecer imagen de perfil en la sección héroe (la imagen grande)
             const heroImageContainer = document.querySelector('main .lg\\:col-span-2 div img[alt="Foto de perfil"]')?.parentElement ||
                                       document.querySelector('main section div img[alt="Foto de perfil"]')?.parentElement;
             const heroImg = heroImageContainer?.querySelector('img[alt="Foto de perfil"]');
@@ -89,13 +89,13 @@ async function initializeHomePage() {
                 }
             }
             
-            // Load progress and lobby data
+            // Cargar datos de progreso y lobby
             await loadProgressData(userId, user);
             await loadUpcomingLevel(userId, user);
             await loadHomeAchievements(userId);
-            // Syllabus removed from home.html, so we don't load it anymore
+            // El plan de estudios fue eliminado de home.html, así que ya no lo cargamos
             
-            // Check for pending achievement from signup
+            // Verificar logro pendiente del registro
             const pendingAchievement = sessionStorage.getItem('pendingAchievement');
             if (pendingAchievement) {
                 try {
@@ -117,7 +117,7 @@ async function initializeHomePage() {
 
 async function loadProgressData(userId, user) {
     try {
-        // These elements might not exist in the current HTML, so we check first
+        // Estos elementos podrían no existir en el HTML actual, así que verificamos primero
         const totalPointsEl = document.getElementById('total-points');
         const currentLevelEl = document.getElementById('current-level');
         const progressBarEl = document.getElementById('progress-bar');
@@ -130,7 +130,7 @@ async function loadProgressData(userId, user) {
             if (totalPointsEl) totalPointsEl.textContent = totalPoints;
             if (currentLevelEl) currentLevelEl.textContent = currentLevel;
             
-            // Calculate progress percentage (simplified - you can enhance this)
+            // Calcular porcentaje de progreso (simplificado - puedes mejorarlo)
             if (progressBarEl || progressTextEl) {
                 const progressPercentage = Math.min((totalPoints % 1000) / 10, 100);
                 if (progressBarEl) progressBarEl.style.width = `${progressPercentage}%`;
@@ -155,7 +155,7 @@ async function loadHomeAchievements(userId) {
                     </div>
                 `;
             } else {
-                // Show only the 4 most recent achievements
+                // Mostrar solo los 4 logros más recientes
                 const recentAchievements = achievements.slice(-4).reverse();
                 renderAchievements(recentAchievements, container);
             }
@@ -177,7 +177,7 @@ async function loadUpcomingLevel(userId, user) {
         const niveles = await window.api.getAllNiveles();
         const currentLevel = user.nivelActual || 1;
         
-        // Find next level
+        // Encontrar siguiente nivel
         const sortedNiveles = Array.isArray(niveles) ? niveles.sort((a, b) => (a.orden || 0) - (b.orden || 0)) : [];
         const nextLevel = sortedNiveles.find(n => (n.orden || n.IdNiveles || 0) > currentLevel) || sortedNiveles[0];
         
@@ -267,7 +267,7 @@ async function loadSyllabus() {
     }
 }
 
-// Initialize everything when DOM is ready
+// Inicializar todo cuando el DOM esté listo
 window.addEventListener('DOMContentLoaded', () => {
     initializeHomePage();
 });

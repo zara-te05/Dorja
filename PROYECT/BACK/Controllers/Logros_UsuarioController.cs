@@ -79,14 +79,14 @@ namespace BACK.Controllers
                 return BadRequest(new { message = "UserId y LogroId son requeridos" });
             }
 
-            // Check if user already has this logro
+            // Verificar si el usuario ya tiene este logro
             var hasLogro = await _logros_UsuarioRepository.UserHasLogro(request.UserId, request.LogroId);
             if (hasLogro)
             {
                 return Ok(new { message = "El usuario ya tiene este logro", alreadyHas = true });
             }
 
-            // Grant the logro
+            // Otorgar el logro
             var logroUsuario = new Logros_Usuario
             {
                 Id_Usuario = request.UserId,

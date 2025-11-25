@@ -6,11 +6,11 @@ const fs = require('fs');
 let mainWindow;
 let backendProcess;
 
-// Start the backend server
+// Iniciar el servidor backend
 const startBackend = () => {
   const backendDir = path.join(__dirname, 'PROYECT', 'BACK');
   
-  // Try running with dotnet
+  // Intentar ejecutar con dotnet
   console.log('Starting backend server...');
   backendProcess = spawn('dotnet', ['run'], {
     cwd: backendDir,
@@ -27,7 +27,7 @@ const startBackend = () => {
   });
 };
 
-// Stop the backend server
+// Detener el servidor backend
 const stopBackend = () => {
   if (backendProcess) {
     backendProcess.kill();
@@ -45,15 +45,15 @@ function createWindow() {
       preload: path.join(__dirname, 'PROYECT', 'FRONT', 'wwwroot', 'preload.js'),
       nodeIntegration: false,
       contextIsolation: true,
-      webSecurity: false // Allow local file access
+      webSecurity: false // Permitir acceso a archivos locales
     },
     show: false
   });
 
-  // Start backend first
+  // Iniciar backend primero
   startBackend();
 
-  // Wait a bit for backend to start, then load the page
+  // Esperar un poco para que el backend inicie, luego cargar la página
   setTimeout(() => {
     const htmlPath = path.join(__dirname, 'PROYECT', 'FRONT', 'wwwroot', 'home.html');
     mainWindow.loadFile(htmlPath);

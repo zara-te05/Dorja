@@ -57,9 +57,9 @@ document.addEventListener('DOMContentLoaded', async () => {
     async function loadUserProfile() {
         try {
             const user = await window.api.getUserById(userId);
-            console.log('User data loaded:', user); // Debug log
-            console.log('ProfilePhotoPath:', user?.profilePhotoPath); // Debug log
-            console.log('CoverPhotoPath:', user?.coverPhotoPath); // Debug log
+            console.log('User data loaded:', user); // Registro de depuración
+            console.log('ProfilePhotoPath:', user?.profilePhotoPath); // Registro de depuración
+            console.log('CoverPhotoPath:', user?.coverPhotoPath); // Registro de depuración
             
             if (user) {
                 currentUser = user;
@@ -70,19 +70,19 @@ document.addEventListener('DOMContentLoaded', async () => {
 
                 const initial = user.username ? user.username.charAt(0).toUpperCase() : 'U';
                 
-                // Store initial in container for fallback
+                // Almacenar inicial en el contenedor como respaldo
                 if (profilePhotoContainer) {
                     profilePhotoContainer.dataset.initial = initial;
                 }
                 
-                // Try to load profile photo from BLOB first, then fallback to file path
+                // Intentar cargar foto de perfil desde BLOB primero, luego recurrir a ruta de archivo
                 let profilePhotoLoaded = false;
                 
-                // Try BLOB first (database storage)
+                // Intentar BLOB primero (almacenamiento en base de datos)
                 try {
                     const profileBlobUrl = await window.api.getImageBlob(userId, 'profile');
                     if (profileBlobUrl) {
-                        console.log('Loading profile photo from BLOB'); // Debug log
+                        console.log('Loading profile photo from BLOB'); // Registro de depuración
                         if (profilePhoto) {
                             profilePhoto.style.display = 'block';
                             profilePhoto.onerror = () => {
@@ -121,9 +121,9 @@ document.addEventListener('DOMContentLoaded', async () => {
                     }
                 }
                 
-                // If still no image, show initial
+                // Si aún no hay imagen, mostrar inicial
                 if (!profilePhotoLoaded) {
-                    console.log('No profile photo found, showing initial'); // Debug log
+                    console.log('No profile photo found, showing initial'); // Registro de depuración
                     if (profilePhoto) {
                         profilePhoto.style.display = 'none';
                     }
@@ -132,14 +132,14 @@ document.addEventListener('DOMContentLoaded', async () => {
                     }
                 }
 
-                // Try to load cover photo from BLOB first, then fallback to file path
+                // Intentar cargar foto de portada desde BLOB primero, luego recurrir a ruta de archivo
                 let coverPhotoLoaded = false;
                 
-                // Try BLOB first (database storage)
+                // Intentar BLOB primero (almacenamiento en base de datos)
                 try {
                     const coverBlobUrl = await window.api.getImageBlob(userId, 'cover');
                     if (coverBlobUrl) {
-                        console.log('Loading cover photo from BLOB'); // Debug log
+                        console.log('Loading cover photo from BLOB'); // Registro de depuración
                         if (coverPhoto) {
                             coverPhoto.onerror = () => {
                                 console.error('Failed to load cover image from BLOB');
@@ -151,13 +151,13 @@ document.addEventListener('DOMContentLoaded', async () => {
                         }
                     }
                 } catch (blobError) {
-                    console.log('No cover photo BLOB found, trying file path'); // Debug log
+                    console.log('No cover photo BLOB found, trying file path'); // Registro de depuración
                 }
                 
-                // Fallback to file path if BLOB not found
+                // Recurrir a ruta de archivo si BLOB no se encuentra
                 if (!coverPhotoLoaded && user.coverPhotoPath && user.coverPhotoPath.trim() !== '') {
                     const coverImageUrl = `http://localhost:5222${user.coverPhotoPath}`;
-                    console.log('Setting cover photo URL from file path:', coverImageUrl); // Debug log
+                    console.log('Setting cover photo URL from file path:', coverImageUrl); // Registro de depuración
                     
                     if (coverPhoto) {
                         coverPhoto.onerror = () => {
@@ -170,9 +170,9 @@ document.addEventListener('DOMContentLoaded', async () => {
                     }
                 }
                 
-                // If still no image, hide cover photo
+                // Si aún no hay imagen, ocultar foto de portada
                 if (!coverPhotoLoaded) {
-                    console.log('No cover photo found'); // Debug log
+                    console.log('No cover photo found'); // Registro de depuración
                     if (coverPhoto) {
                         coverPhoto.style.display = 'none';
                     }
@@ -194,44 +194,44 @@ document.addEventListener('DOMContentLoaded', async () => {
     const handleImageUpload = async (file, imageType) => {
         if (!file) return;
 
-        // Validate file type
+        // Validar tipo de archivo
         const validTypes = ['image/jpeg', 'image/jpg', 'image/png', 'image/gif'];
         if (!validTypes.includes(file.type)) {
             alert('Tipo de archivo no válido. Solo se permiten imágenes (JPG, PNG, GIF).');
             return;
         }
 
-        // Validate file size (5MB max)
+        // Validar tamaño de archivo (máximo 5MB)
         if (file.size > 5 * 1024 * 1024) {
             alert('El archivo es demasiado grande. El tamaño máximo es 5MB.');
             return;
         }
 
-        // Show preview immediately
+        // Mostrar vista previa inmediatamente
         const reader = new FileReader();
         reader.onload = async (e) => {
             const dataUrl = e.target.result;
             const imgElement = imageType === 'profile' ? profilePhoto : coverPhoto;
-            const originalSrc = imgElement.src; // Save original src
+            const originalSrc = imgElement.src; // Guardar src original
             
-            // Set preview immediately and keep it
+            // Establecer vista previa inmediatamente y mantenerla
             imgElement.src = dataUrl;
-            imgElement.onerror = null; // Clear any error handlers
+            imgElement.onerror = null; // Limpiar cualquier manejador de errores
 
             try {
-                // Use BLOB storage method (saves directly to database)
+                // Usar método de almacenamiento BLOB (guarda directamente en la base de datos)
                 const result = await window.api.saveImageAsBlob({ userId, imageType, dataUrl });
-                console.log('Image BLOB upload result:', result); // Debug log
+                console.log('Image BLOB upload result:', result); // Registro de depuración
                 
                 if (result.success) {
-                    // For BLOB storage, we keep the preview as data URL or reload from BLOB
-                    // The image is now stored in the database, so we can keep the preview
-                    // or fetch it from the database endpoint
+                    // Para almacenamiento BLOB, mantenemos la vista previa como data URL o recargamos desde BLOB
+                    // La imagen ahora está almacenada en la base de datos, así que podemos mantener la vista previa
+                    // o obtenerla desde el endpoint de BLOB de la base de datos
                     
-                    // Option 1: Keep the data URL (simpler, works immediately)
-                    // imgElement.src = dataUrl; // Already set above
+                    // Opción 1: Mantener la data URL (más simple, funciona inmediatamente)
+                    // imgElement.src = dataUrl; // Ya establecido arriba
                     
-                    // Option 2: Fetch from database BLOB endpoint (ensures sync with DB)
+                    // Opción 2: Obtener desde el endpoint de BLOB de la base de datos (asegura sincronización con BD)
                     try {
                         const blobUrl = await window.api.getImageBlob(userId, imageType);
                         if (blobUrl) {
@@ -243,19 +243,19 @@ document.addEventListener('DOMContentLoaded', async () => {
                         }
                     } catch (blobError) {
                         console.warn('Could not fetch image from BLOB, using preview:', blobError);
-                        // Keep the data URL preview
+                        // Mantener la vista previa de data URL
                     }
                     
-                    // Check if achievement was granted
+                    // Verificar si se otorgó un logro
                     if (result.achievementGranted && imageType === 'profile') {
                         await showAchievementPopup('Personalizar perfil', 'Has añadido una foto de perfil. ¡Tu perfil se ve genial!', 'fa-user-circle');
                     } else {
                         alert(`La foto de ${imageType === 'profile' ? 'perfil' : 'portada'} se ha guardado exitosamente en la base de datos.`);
                     }
                 } else {
-                    console.error('Image BLOB upload failed:', result.message); // Debug log
+                    console.error('Image BLOB upload failed:', result.message); // Registro de depuración
                     alert(result.message || 'No se pudo guardar la imagen.');
-                    // Restore original image
+                    // Restaurar imagen original
                     if (originalSrc) {
                         imgElement.src = originalSrc;
                     } else {
@@ -265,7 +265,7 @@ document.addEventListener('DOMContentLoaded', async () => {
             } catch (error) {
                 console.error(`Error al guardar la imagen de ${imageType}:`, error);
                 alert('No se pudo guardar la imagen. Por favor, intenta de nuevo.');
-                // Restore original image
+                // Restaurar imagen original
                 if (originalSrc) {
                     imgElement.src = originalSrc;
                 } else {

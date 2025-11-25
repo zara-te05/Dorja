@@ -1,7 +1,7 @@
 // js/problems-renderer.js
-// Load achievements.js functions
+// Cargar funciones de achievements.js
 if (typeof showAchievementPopup === 'undefined') {
-    // If achievements.js is not loaded, define a placeholder
+    // Si achievements.js no está cargado, definir un marcador de posición
     window.showAchievementPopup = async function(nombre, descripcion, icono) {
         console.log('Achievement unlocked:', nombre);
     };
@@ -133,7 +133,7 @@ class ProblemsRenderer {
         this.currentTemaId = temaId;
         await this.cargarProblemasTema(temaId);
         
-        // Actualizar UI
+        // Actualizar interfaz de usuario
         document.querySelectorAll('.tema').forEach(t => t.classList.remove('active'));
         temaElement.classList.add('active');
         console.log('✅ Tema marcado como activo');
@@ -227,7 +227,7 @@ class ProblemsRenderer {
 
             this.currentProblemaId = problemaId;
             
-            // Actualizar UI
+            // Actualizar interfaz de usuario
             document.getElementById('problem-title').textContent = problema.titulo;
             document.getElementById('problem-description').innerHTML = `
                 <p>${problema.descripcion}</p>
@@ -244,7 +244,7 @@ class ProblemsRenderer {
 
             console.log('✅ Interfaz del problema actualizada');
 
-            // Cargar código en editor
+            // Cargar código en el editor
             if (window.monacoEditor) {
                 const ultimoCodigo = problema.ultimo_codigo || problema.codigo_inicial;
                 window.monacoEditor.setValue(ultimoCodigo);
@@ -253,7 +253,7 @@ class ProblemsRenderer {
                 console.log('⚠ Editor Monaco no está disponible');
             }
 
-            // Actualizar navegación
+            // Actualizar la navegación
             this.actualizarNavegacion();
             this.renderListaProblemas();
         } catch (error) {
@@ -327,7 +327,7 @@ class ProblemsRenderer {
                 outputContent.classList.add('text-green-600');
                 outputContent.classList.remove('text-red-600');
                 
-                // Show achievement popup if granted
+                // Mostrar popup de logro si se otorgó
                 if (resultado.achievementGranted) {
                     await showAchievementPopup('Tu primer código', 'Has ejecutado tu primer código. ¡El inicio de una gran aventura!', 'fa-code');
                 }

@@ -66,15 +66,15 @@ namespace BACK.Controllers
                 return BadRequest(ModelState);
             }
 
-            // Get current user data from database to preserve fields not being updated
+            // Obtener datos actuales del usuario desde la base de datos para preservar campos que no se están actualizando
             var currentUser = await _usersRepository.GetDetails(usuario.Id);
             if (currentUser == null)
             {
                 return NotFound(new { message = "Usuario no encontrado" });
             }
 
-            // Merge: use provided values, fall back to current database values
-            // This ensures we don't lose data like photo paths, password, etc.
+            // Fusionar: usar valores proporcionados, recurrir a valores actuales de la base de datos
+            // Esto asegura que no perdamos datos como rutas de fotos, contraseña, etc.
             var userToUpdate = new Users
             {
                 Id = usuario.Id,
@@ -88,7 +88,7 @@ namespace BACK.Controllers
                 UltimaConexion = usuario.UltimaConexion ?? currentUser.UltimaConexion,
                 PuntosTotales = usuario.PuntosTotales != default ? usuario.PuntosTotales : currentUser.PuntosTotales,
                 NivelActual = usuario.NivelActual != default ? usuario.NivelActual : currentUser.NivelActual,
-                // CRITICAL: Preserve photo paths from database unless explicitly provided
+                // CRÍTICO: Preservar rutas de fotos desde la base de datos a menos que se proporcionen explícitamente
                 ProfilePhotoPath = !string.IsNullOrWhiteSpace(usuario.ProfilePhotoPath) ? usuario.ProfilePhotoPath : currentUser.ProfilePhotoPath,
                 CoverPhotoPath = !string.IsNullOrWhiteSpace(usuario.CoverPhotoPath) ? usuario.CoverPhotoPath : currentUser.CoverPhotoPath
             };
@@ -99,7 +99,7 @@ namespace BACK.Controllers
                 return StatusCode(500, new { message = "Error al actualizar el usuario" });
             }
             
-            // Return the updated user data
+            // Devolver los datos actualizados del usuario
             var updatedUser = await _usersRepository.GetDetails(usuario.Id);
             return Ok(updatedUser);
         }
@@ -130,26 +130,26 @@ namespace BACK.Controllers
                 return BadRequest(new { message = "Email, Username y Password son obligatorios" });
             }
 
-            // Check if email already exists
+            // Verificar si el email ya existe
             var existingByEmail = await _usersRepository.GetByEmail(users.Email);
             if (existingByEmail != null)
             {
                 return Conflict(new { message = "El email ya está registrado" });
             }
 
-            // Check if username already exists
+            // Verificar si el nombre de usuario ya existe
             var existingByUsername = await _usersRepository.GetByUsername(users.Username);
             if (existingByUsername != null)
             {
                 return Conflict(new { message = "El nombre de usuario ya está en uso" });
             }
 
-            // Set default values for new user
+            // Establecer valores predeterminados para el nuevo usuario
             users.Password = HashPassword(users.Password);
             users.FechaRegistro = DateTime.Now;
-            users.UltimaConexion = null; // Will be set on first login
+            users.UltimaConexion = null; // Se establecerá en el primer inicio de sesión
             users.PuntosTotales = 0;
-            users.NivelActual = 1; // Start at level 1
+            users.NivelActual = 1; // Comenzar en el nivel 1
             users.ProfilePhotoPath = string.Empty;
             users.CoverPhotoPath = string.Empty;
 
@@ -160,10 +160,10 @@ namespace BACK.Controllers
                 return StatusCode(500, new { message = "Error al registrar el usuario" });
             }
 
-            // Get the created user to get the ID
+            // Obtener el usuario creado para obtener el ID
             var createdUser = await _usersRepository.GetByEmail(users.Email);
             
-            // Grant "Crear cuenta" achievement
+            // Otorgar logro "Crear cuenta"
             if (createdUser != null)
             {
                 await GrantLogroIfNotExists(createdUser.Id, "Crear cuenta");
@@ -191,7 +191,7 @@ namespace BACK.Controllers
                 return BadRequest(new { message = "Email/Username y Password son obligatorios" });
             }
 
-            // Try to find user by email or username
+            // Intentar encontrar usuario por email o nombre de usuario
             Users? existing = null;
             if (!string.IsNullOrWhiteSpace(request.Email))
             {
@@ -232,7 +232,7 @@ namespace BACK.Controllers
             });
         }
 
-        // Helper class for login request
+        // Clase auxiliar para solicitud de inicio de sesión
         public class LoginRequest
         {
             public string? Username { get; set; }
@@ -271,49 +271,49 @@ namespace BACK.Controllers
 
             try
             {
-                // Get user to update
+                // Obtener usuario para actualizar
                 var user = await _usersRepository.GetDetails(userId);
                 if (user == null)
                 {
                     return NotFound(new { message = "Usuario no encontrado" });
                 }
 
-                // Ensure photo paths are not null
+                // Asegurar que las rutas de fotos no sean nulas
                 if (user.ProfilePhotoPath == null) user.ProfilePhotoPath = string.Empty;
                 if (user.CoverPhotoPath == null) user.CoverPhotoPath = string.Empty;
 
-                // Create uploads directory if it doesn't exist
+                // Crear directorio de subidas si no existe
                 var uploadsDir = Path.Combine(Directory.GetCurrentDirectory(), "wwwroot", "uploads", "users", userId.ToString());
                 if (!Directory.Exists(uploadsDir))
                 {
                     Directory.CreateDirectory(uploadsDir);
                 }
 
-                // Generate unique filename
+                // Generar nombre de archivo único
                 var fileName = $"{imageType}_{Guid.NewGuid()}{fileExtension}";
                 var filePath = Path.Combine(uploadsDir, fileName);
                 var relativePath = $"/uploads/users/{userId}/{fileName}";
 
-                // Save file
+                // Guardar archivo
                 using (var stream = new FileStream(filePath, FileMode.Create))
                 {
                     await file.CopyToAsync(stream);
                 }
 
-                // Update user record - only update the path for the image type being uploaded
-                // The other photo path is already loaded from the database and will be preserved
+                // Actualizar registro de usuario - solo actualizar la ruta para el tipo de imagen que se está subiendo
+                // La otra ruta de foto ya está cargada desde la base de datos y será preservada
                 if (imageType == "profile")
                 {
                     user.ProfilePhotoPath = relativePath;
-                    // CoverPhotoPath is already set from GetDetails, so it will be preserved
+                    // CoverPhotoPath ya está establecido desde GetDetails, por lo que será preservado
                 }
                 else
                 {
                     user.CoverPhotoPath = relativePath;
-                    // ProfilePhotoPath is already set from GetDetails, so it will be preserved
+                    // ProfilePhotoPath ya está establecido desde GetDetails, por lo que será preservado
                 }
 
-                // Log before update for debugging
+                // Registrar antes de actualizar para depuración
                 Console.WriteLine($"Updating user {userId}: ProfilePhotoPath='{user.ProfilePhotoPath}', CoverPhotoPath='{user.CoverPhotoPath}'");
 
                 var updateResult = await _usersRepository.UpdateUsuarios(user);
@@ -324,11 +324,11 @@ namespace BACK.Controllers
                     return StatusCode(500, new { message = "Error al actualizar el registro del usuario en la base de datos" });
                 }
 
-                // Verify the update by getting the user again
+                // Verificar la actualización obteniendo el usuario nuevamente
                 var updatedUser = await _usersRepository.GetDetails(userId);
                 var savedPath = imageType == "profile" ? updatedUser?.ProfilePhotoPath : updatedUser?.CoverPhotoPath;
 
-                // Log after update for debugging
+                // Registrar después de actualizar para depuración
                 Console.WriteLine($"After update - User {userId}: ProfilePhotoPath='{updatedUser?.ProfilePhotoPath}', CoverPhotoPath='{updatedUser?.CoverPhotoPath}'");
                 Console.WriteLine($"Saved path for {imageType}: '{savedPath}'");
 
@@ -374,7 +374,7 @@ namespace BACK.Controllers
                 return BadRequest(new { message = "Tipo de imagen inválido. Debe ser 'profile' o 'cover'" });
             }
 
-            // Validate file type
+            // Validar tipo de archivo
             var allowedExtensions = new[] { ".jpg", ".jpeg", ".png", ".gif" };
             var fileExtension = Path.GetExtension(file.FileName).ToLowerInvariant();
             if (!allowedExtensions.Contains(fileExtension))
@@ -382,7 +382,7 @@ namespace BACK.Controllers
                 return BadRequest(new { message = "Tipo de archivo no permitido. Solo se permiten imágenes (JPG, PNG, GIF)" });
             }
 
-            // Validate file size (max 5MB)
+            // Validar tamaño de archivo (máximo 5MB)
             if (file.Length > 5 * 1024 * 1024)
             {
                 return BadRequest(new { message = "El archivo es demasiado grande. El tamaño máximo es 5MB" });
@@ -390,14 +390,14 @@ namespace BACK.Controllers
 
             try
             {
-                // Get user to verify existence
+                // Obtener usuario para verificar existencia
                 var user = await _usersRepository.GetDetails(userId);
                 if (user == null)
                 {
                     return NotFound(new { message = "Usuario no encontrado" });
                 }
 
-                // Read image data into byte array
+                // Leer datos de imagen en un array de bytes
                 byte[] imageData;
                 using (var memoryStream = new MemoryStream())
                 {
@@ -405,7 +405,7 @@ namespace BACK.Controllers
                     imageData = memoryStream.ToArray();
                 }
 
-                // Save to database as BLOB
+                // Guardar en la base de datos como BLOB
                 var updateResult = await _usersRepository.UpdatePhotoBlob(userId, imageType, imageData);
                 
                 if (!updateResult)
@@ -413,7 +413,7 @@ namespace BACK.Controllers
                     return StatusCode(500, new { message = "Error al guardar la imagen en la base de datos" });
                 }
 
-                // Grant "Personalizar perfil" achievement if profile photo was uploaded
+                // Otorgar logro "Personalizar perfil" si se subió foto de perfil
                 bool achievementGranted = false;
                 if (imageType == "profile")
                 {
@@ -452,16 +452,16 @@ namespace BACK.Controllers
                     return NotFound(new { message = "Imagen no encontrada en la base de datos" });
                 }
 
-                // Determine content type based on image data
-                string contentType = "image/jpeg"; // Default
+                // Determinar tipo de contenido basado en los datos de la imagen
+                string contentType = "image/jpeg"; // Predeterminado
                 if (imageData.Length > 4)
                 {
-                    // Check for PNG signature
+                    // Verificar firma PNG
                     if (imageData[0] == 0x89 && imageData[1] == 0x50 && imageData[2] == 0x4E && imageData[3] == 0x47)
                     {
                         contentType = "image/png";
                     }
-                    // Check for GIF signature
+                    // Verificar firma GIF
                     else if (imageData[0] == 0x47 && imageData[1] == 0x49 && imageData[2] == 0x46)
                     {
                         contentType = "image/gif";
@@ -490,7 +490,7 @@ namespace BACK.Controllers
         {
             try
             {
-                // Get logro by name
+                // Obtener logro por nombre
                 var logro = await _logrosRepository.GetLogroByNombre(logroNombre);
                 if (logro == null)
                 {
@@ -498,14 +498,14 @@ namespace BACK.Controllers
                     return false;
                 }
 
-                // Check if user already has this logro
+                // Verificar si el usuario ya tiene este logro
                 var hasLogro = await _logrosUsuarioRepository.UserHasLogro(userId, logro.Id);
                 if (hasLogro)
                 {
-                    return false; // Already has it
+                    return false; // Ya lo tiene
                 }
 
-                // Grant the logro
+                // Otorgar el logro
                 var logroUsuario = new Logros_Usuario
                 {
                     Id_Usuario = userId,
