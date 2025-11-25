@@ -1,7 +1,9 @@
 using Microsoft.AspNetCore.Mvc;
+using System;
 using System.Diagnostics;
 using System.Text;
 using DorjaData.Repositories;
+using DorjaModelado;
 
 namespace BACK.Controllers
 {

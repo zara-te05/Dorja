@@ -7,6 +7,17 @@
   <title>Problemas - Dorja</title>
   <link href="css/output.css" rel="stylesheet">
   <style>
+    html, body {
+      height: 100%;
+      overflow-y: auto;
+      overflow-x: hidden;
+    }
+
+    body {
+      position: relative;
+      min-height: 100vh;
+    }
+
     .tema {
       border-left: 4px solid #4f46e5;
       transition: all 0.3s ease;
@@ -75,11 +86,64 @@
       display: block !important;
       visibility: visible !important;
       opacity: 1 !important;
+      overflow-y: auto;
     }
 
     .tema {
       display: block;
       visibility: visible;
+    }
+
+    /* Estilos para barras de desplazamiento */
+    .fixed.top-\[65px\] {
+      height: calc(100vh - 65px);
+      overflow-y: auto;
+    }
+
+    .flex-1.overflow-y-auto {
+      overflow-y: auto !important;
+    }
+
+    /* Estilo personalizado para scrollbars */
+    ::-webkit-scrollbar {
+      width: 8px;
+      height: 8px;
+    }
+
+    ::-webkit-scrollbar-track {
+      background: #f1f5f9;
+      border-radius: 4px;
+    }
+
+    ::-webkit-scrollbar-thumb {
+      background: #cbd5e1;
+      border-radius: 4px;
+    }
+
+    ::-webkit-scrollbar-thumb:hover {
+      background: #94a3b8;
+    }
+
+    /* Estilos para modo oscuro */
+    .dark ::-webkit-scrollbar-track {
+      background: #334155;
+    }
+
+    .dark ::-webkit-scrollbar-thumb {
+      background: #475569;
+    }
+
+    .dark ::-webkit-scrollbar-thumb:hover {
+      background: #64748b;
+    }
+
+    /* Mejoras para el layout general */
+    .grid.lg\:grid-cols-6 {
+      min-height: 0;
+    }
+
+    .flex-col.h-full {
+      min-height: 0;
     }
   </style>
 </head>
@@ -110,7 +174,7 @@
     </div>
   </header>
 
-  <div class="fixed top-[65px] left-0 w-full h-[calc(100vh-65px)] p-4 sm:p-6 lg:p-8">
+  <div class="fixed top-[65px] left-0 w-full h-[calc(100vh-65px)] p-4 sm:p-6 lg:p-8 overflow-y-auto">
     <div class="grid lg:grid-cols-6 gap-6 h-full">
       <!-- Sidebar de Temas -->
       <div
@@ -146,7 +210,7 @@
       </div>
 
       <!-- Área Principal del Problema -->
-      <div class="lg:col-span-4 flex flex-col gap-6 h-full">
+      <div class="lg:col-span-4 flex flex-col gap-6 h-full min-h-0">
         <!-- Panel del Problema -->
         <div
           class="bg-white dark:bg-slate-800 border border-gray-200 dark:border-slate-700 shadow-lg rounded-xl flex flex-col overflow-hidden flex-shrink-0">
