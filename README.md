@@ -403,8 +403,12 @@ Este proyecto está bajo la Licencia MIT. Ver el archivo `LICENSE` para más det
 
 ## 👥 Autores
 
-- **Equipo Dorja** - [@zara-te05](https://github.com/zara-te05)
+*   **Equipo Dorja** - [@zara-te05](https://github.com/zara-te05)
 
+*   **Luis Castillo** - Desarrollador Full-Stack - https://github.com/LuisCastilloMartinez
+*   **Diego Zarate** - Desarrollador Backend - https://github.com/zara-te05
+*   **Diana Reyes** - Desarrollador Frontend y Tester- https://github.com/dianareyeshdz10-gif
+*   **Manuel Andrade** - Desarrollador Backend - https://github.com/Manuelandrade27
 ---
 
 ## 🙏 Agradecimientos
