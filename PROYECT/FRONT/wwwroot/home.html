@@ -92,7 +92,7 @@
                         <div class="hidden sm:block text-left">
                             <div id="username-display" class="font-medium text-sm text-gray-700 dark:text-gray-300">
                                 Cargando...</div>
-                            <div class="text-xs text-gray-400">Nivel 8 · Avanzado</div>
+                            <div class="text-xs text-gray-400">Nivel 1 · Principiante</div>
                         </div>
                         <i class="fas fa-chevron-down text-gray-400 hidden sm:block"></i>
                     </button>
@@ -140,15 +140,15 @@
                 class="lg:col-span-2 bg-gradient-to-r from-indigo-50 to-white dark:from-slate-800/40 dark:to-slate-900/40 rounded-xl p-8 lg:p-10 shadow-md border border-gray-100 dark:border-slate-700">
                 <div class="flex flex-col sm:flex-row items-start sm:items-center gap-6 sm:gap-8 mb-10">
                     <div class="w-32 h-32 sm:w-36 sm:h-36 rounded-2xl bg-indigo-500 flex items-center justify-center shadow-lg flex-shrink-0">
-                        <img src="" alt="Foto de perfil"
+                        <img id="profile-photo" src="" alt="Foto de perfil"
                             class="w-full h-full rounded-2xl object-cover" />
                     </div>
                     <div class="flex-1">
                         <h2 class="text-2xl sm:text-3xl font-extrabold text-gray-900 dark:text-white">Bienvenido, <span
                                 id="user-firstname">Usuario</span></h2>
                         <p class="text-sm text-gray-600 dark:text-gray-300 mt-2">Desbloqueaste <span
-                                class="font-semibold text-indigo-600 dark:text-indigo-300">8</span> niveles · <span
-                                class="font-semibold">1,250</span> puntos</p>
+                                class="font-semibold text-indigo-600 dark:text-indigo-300">1</span> nivel · <span
+                                class="font-semibold">100</span> puntos</p>
 
                         <div class="mt-6 flex flex-wrap gap-3 sm:gap-4">
                             <a href="Exercises.html"
@@ -198,12 +198,9 @@
                         <div class="relative z-10">
                             <p class="text-xs font-medium text-indigo-700 dark:text-indigo-300 uppercase tracking-wide mb-3">Nivel</p>
                             <div class="flex items-center gap-3">
-                                <div class="p-2.5 rounded-lg bg-gradient-to-br from-indigo-500 to-blue-600 shadow-md group-hover:scale-110 transition-transform duration-300">
-                                    <i class="fas fa-arrow-up text-white text-lg"></i>
-                                </div>
                                 <div>
-                                    <span class="font-bold text-2xl text-gray-900 dark:text-white">8</span>
-                                    <span class="font-semibold text-sm text-gray-600 dark:text-gray-400 ml-2">· Avanzado</span>
+                                    <span class="font-bold text-2xl text-gray-900 dark:text-white">1</span>
+                                    <span class="font-semibold text-sm text-gray-600 dark:text-gray-400 ml-2">· Principiante</span>
                                 </div>
                             </div>
                             <div class="mt-3 flex items-center gap-1">
@@ -225,8 +222,8 @@
                             <p class="text-xs font-medium text-purple-700 dark:text-purple-300 uppercase tracking-wide mb-4">Progreso</p>
                             <div class="mb-3">
                                 <div class="flex items-center justify-between mb-2">
-                                    <span class="font-bold text-xl text-gray-900 dark:text-white">65%</span>
-                                    <span class="text-xs font-medium text-purple-600 dark:text-purple-400">Nivel 9</span>
+                                    <span class="font-bold text-xl text-gray-900 dark:text-white">10%</span>
+                                    <span class="text-xs font-medium text-purple-600 dark:text-purple-400">Nivel 1</span>
                                 </div>
                                 <div class="w-full bg-gray-200/60 dark:bg-slate-700/60 rounded-full h-3 overflow-hidden shadow-inner">
                                     <div class="bg-gradient-to-r from-indigo-500 via-purple-500 to-pink-500 h-3 rounded-full shadow-md relative overflow-hidden transition-all duration-500"
@@ -235,7 +232,6 @@
                                     </div>
                                 </div>
                             </div>
-                            <p class="text-xs text-gray-600 dark:text-gray-400 font-medium">350 XP restantes</p>
                         </div>
                     </div>
                 </div>
@@ -338,8 +334,9 @@
     <script src="./js/achievements.js"></script>
     <script src="./js/renderer.js"></script>
     <script src="./js/dropdown.js"></script>
+    <script src="./js/profile.js"></script>
     <script>
-        // JS de mejora visual: alternar tema, saludo, conocimiento aleatorio
+        // Visual-enhancement JS: theme toggle, greeting, random knowledge
         document.addEventListener('DOMContentLoaded', () => {
             // Verificar autenticación
             const userId = sessionStorage.getItem('userId');
@@ -352,7 +349,7 @@
             const themeIcon = document.getElementById('theme-icon');
             const themeText = document.getElementById('theme-text');
 
-            // Ayudante de tema
+            // Theme helper
             const applyTheme = (isDark) => {
                 document.documentElement.classList.toggle('dark', isDark);
                 localStorage.setItem('theme', isDark ? 'dark' : 'light');
@@ -379,7 +376,7 @@
                 });
             }
 
-            // Saludo
+            // Greeting
             const hour = new Date().getHours();
             let greeting = 'Bienvenido';
             if (hour < 12) greeting = 'Buenos días';

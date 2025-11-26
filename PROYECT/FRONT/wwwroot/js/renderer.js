@@ -1,34 +1,74 @@
-// Función auxiliar para establecer imagen de perfil
-function setProfileImage(imgElement, user) {
+// Helper function to set profile image (same logic as profile.js)
+async function setProfileImage(imgElement, user, userId) {
     if (!imgElement || !user) return;
     
     const initial = user.username ? user.username.charAt(0).toUpperCase() : 'U';
+    const container = imgElement.parentElement;
     
-    if (user.profilePhotoPath && user.profilePhotoPath.trim() !== '') {
-        // Usar URL del backend para imágenes
-        imgElement.src = `http://localhost:5222${user.profilePhotoPath}`;
-        imgElement.onerror = () => {
-            // Si la imagen falla, mostrar inicial como texto
-            const container = imgElement.parentElement;
-            if (container) {
+    // Store initial in container for fallback
+    if (container) {
+        container.dataset.initial = initial;
+    }
+    
+    let profilePhotoLoaded = false;
+    
+    // Try BLOB first (database storage)
+    try {
+        const profileBlobUrl = await window.api.getImageBlob(userId, 'profile');
+        if (profileBlobUrl) {
+            console.log('Loading profile photo from BLOB');
+            imgElement.style.display = 'block';
+            imgElement.onerror = () => {
+                console.error('Failed to load profile image from BLOB');
                 imgElement.style.display = 'none';
-                const initialSpan = document.createElement('span');
-                initialSpan.className = 'text-white text-lg font-bold';
-                initialSpan.textContent = initial;
-                container.appendChild(initialSpan);
+                if (container) {
+                    // Remove any existing span
+                    const existingSpan = container.querySelector('span');
+                    if (existingSpan) existingSpan.remove();
+                    container.innerHTML = `<span class='text-white text-lg font-bold'>${initial}</span>`;
+                }
+                imgElement.onerror = null;
+            };
+            imgElement.src = profileBlobUrl;
+            profilePhotoLoaded = true;
+        }
+    } catch (blobError) {
+        console.log('No profile photo BLOB found, trying file path');
+    }
+    
+    // Fallback to file path if BLOB not found
+    if (!profilePhotoLoaded && user.profilePhotoPath && user.profilePhotoPath.trim() !== '') {
+        const profileImageUrl = `http://localhost:5222${user.profilePhotoPath}`;
+        console.log('Setting profile photo URL from file path:', profileImageUrl);
+        
+        imgElement.style.display = 'block';
+        imgElement.onerror = () => {
+            console.error('Failed to load profile image from file path:', profileImageUrl);
+            imgElement.style.display = 'none';
+            if (container) {
+                // Remove any existing span
+                const existingSpan = container.querySelector('span');
+                if (existingSpan) existingSpan.remove();
+                container.innerHTML = `<span class='text-white text-lg font-bold'>${initial}</span>`;
             }
+            imgElement.onerror = null;
         };
-    } else {
-        // Mostrar inicial como texto en lugar de marcador de posición
+        imgElement.src = profileImageUrl;
+        profilePhotoLoaded = true;
+    }
+    
+    // If still no image, show initial
+    if (!profilePhotoLoaded) {
+        console.log('No profile photo found, showing initial');
         imgElement.style.display = 'none';
-        const container = imgElement.parentElement;
         if (container) {
-            const initialSpan = document.createElement('span');
-            initialSpan.className = 'text-white text-lg font-bold';
-            initialSpan.textContent = initial;
-            container.appendChild(initialSpan);
+            // Remove any existing span
+            const existingSpan = container.querySelector('span');
+            if (existingSpan) existingSpan.remove();
+            container.innerHTML = `<span class='text-white text-lg font-bold'>${initial}</span>`;
         }
     }
+    
     imgElement.alt = `Avatar de ${user.username || 'Usuario'}`;
 }
 
@@ -36,7 +76,7 @@ async function initializeHomePage() {
     const userId = sessionStorage.getItem('userId');
     const usernameDisplay = document.getElementById('username-display');
     const userAvatar = document.querySelector('#user-menu-button img');
-    // Intentar múltiples selectores para la imagen de perfil del héroe
+    // Try multiple selectors for hero profile image
     const heroProfileImage = document.querySelector('main section img[alt="Foto de perfil"]') || 
                              document.querySelector('main .lg\\:col-span-2 img') ||
                              document.querySelector('main section img');
@@ -54,48 +94,90 @@ async function initializeHomePage() {
                 usernameDisplay.textContent = user.username;
             }
             
-            // Establecer avatar en el menú desplegable
+            // Set avatar in dropdown menu
             if (userAvatar) {
-                setProfileImage(userAvatar, user);
+                await setProfileImage(userAvatar, user, userId);
             }
             
-            // Establecer imagen de perfil en la sección héroe (la imagen grande)
-            const heroImageContainer = document.querySelector('main .lg\\:col-span-2 div img[alt="Foto de perfil"]')?.parentElement ||
-                                      document.querySelector('main section div img[alt="Foto de perfil"]')?.parentElement;
-            const heroImg = heroImageContainer?.querySelector('img[alt="Foto de perfil"]');
+            // Set profile image in hero section (the large image)
+            const heroImg = document.getElementById('profile-photo');
+            const heroImageContainer = heroImg?.parentElement;
             
             if (heroImg) {
                 const initial = user.username ? user.username.charAt(0).toUpperCase() : 'U';
                 
-                if (user.profilePhotoPath && user.profilePhotoPath.trim() !== '') {
-                    heroImg.src = `http://localhost:5222${user.profilePhotoPath}`;
+                // Store initial in container for fallback
+                if (heroImageContainer) {
+                    heroImageContainer.dataset.initial = initial;
+                }
+                
+                let profilePhotoLoaded = false;
+                
+                // Try BLOB first (database storage)
+                try {
+                    const profileBlobUrl = await window.api.getImageBlob(userId, 'profile');
+                    if (profileBlobUrl) {
+                        console.log('Loading hero profile photo from BLOB');
+                        heroImg.style.display = 'block';
+                        heroImg.onerror = () => {
+                            console.error('Failed to load hero profile image from BLOB');
+                            heroImg.style.display = 'none';
+                            if (heroImageContainer) {
+                                // Remove any existing span
+                                const existingSpan = heroImageContainer.querySelector('span');
+                                if (existingSpan) existingSpan.remove();
+                                heroImageContainer.innerHTML = `<span class='text-white text-4xl font-bold'>${initial}</span>`;
+                            }
+                            heroImg.onerror = null;
+                        };
+                        heroImg.src = profileBlobUrl;
+                        profilePhotoLoaded = true;
+                    }
+                } catch (blobError) {
+                    console.log('No hero profile photo BLOB found, trying file path');
+                }
+                
+                // Fallback to file path if BLOB not found
+                if (!profilePhotoLoaded && user.profilePhotoPath && user.profilePhotoPath.trim() !== '') {
+                    const profileImageUrl = `http://localhost:5222${user.profilePhotoPath}`;
+                    console.log('Setting hero profile photo URL from file path:', profileImageUrl);
+                    
+                    heroImg.style.display = 'block';
                     heroImg.onerror = () => {
+                        console.error('Failed to load hero profile image from file path:', profileImageUrl);
                         heroImg.style.display = 'none';
                         if (heroImageContainer) {
-                            const span = document.createElement('span');
-                            span.className = 'text-white text-4xl font-bold';
-                            span.textContent = initial;
-                            heroImageContainer.appendChild(span);
+                            // Remove any existing span
+                            const existingSpan = heroImageContainer.querySelector('span');
+                            if (existingSpan) existingSpan.remove();
+                            heroImageContainer.innerHTML = `<span class='text-white text-4xl font-bold'>${initial}</span>`;
                         }
+                        heroImg.onerror = null;
                     };
-                } else {
+                    heroImg.src = profileImageUrl;
+                    profilePhotoLoaded = true;
+                }
+                
+                // If still no image, show initial
+                if (!profilePhotoLoaded) {
+                    console.log('No hero profile photo found, showing initial');
                     heroImg.style.display = 'none';
                     if (heroImageContainer) {
-                        const span = document.createElement('span');
-                        span.className = 'text-white text-4xl font-bold';
-                        span.textContent = initial;
-                        heroImageContainer.appendChild(span);
+                        // Remove any existing span
+                        const existingSpan = heroImageContainer.querySelector('span');
+                        if (existingSpan) existingSpan.remove();
+                        heroImageContainer.innerHTML = `<span class='text-white text-4xl font-bold'>${initial}</span>`;
                     }
                 }
             }
             
-            // Cargar datos de progreso y lobby
+            // Load progress and lobby data
             await loadProgressData(userId, user);
             await loadUpcomingLevel(userId, user);
             await loadHomeAchievements(userId);
-            // El plan de estudios fue eliminado de home.html, así que ya no lo cargamos
+            // Syllabus removed from home.html, so we don't load it anymore
             
-            // Verificar logro pendiente del registro
+            // Check for pending achievement from signup
             const pendingAchievement = sessionStorage.getItem('pendingAchievement');
             if (pendingAchievement) {
                 try {
@@ -117,7 +199,7 @@ async function initializeHomePage() {
 
 async function loadProgressData(userId, user) {
     try {
-        // Estos elementos podrían no existir en el HTML actual, así que verificamos primero
+        // These elements might not exist in the current HTML, so we check first
         const totalPointsEl = document.getElementById('total-points');
         const currentLevelEl = document.getElementById('current-level');
         const progressBarEl = document.getElementById('progress-bar');
@@ -130,7 +212,7 @@ async function loadProgressData(userId, user) {
             if (totalPointsEl) totalPointsEl.textContent = totalPoints;
             if (currentLevelEl) currentLevelEl.textContent = currentLevel;
             
-            // Calcular porcentaje de progreso (simplificado - puedes mejorarlo)
+            // Calculate progress percentage (simplified - you can enhance this)
             if (progressBarEl || progressTextEl) {
                 const progressPercentage = Math.min((totalPoints % 1000) / 10, 100);
                 if (progressBarEl) progressBarEl.style.width = `${progressPercentage}%`;
@@ -155,7 +237,7 @@ async function loadHomeAchievements(userId) {
                     </div>
                 `;
             } else {
-                // Mostrar solo los 4 logros más recientes
+                // Show only the 4 most recent achievements
                 const recentAchievements = achievements.slice(-4).reverse();
                 renderAchievements(recentAchievements, container);
             }
@@ -177,7 +259,7 @@ async function loadUpcomingLevel(userId, user) {
         const niveles = await window.api.getAllNiveles();
         const currentLevel = user.nivelActual || 1;
         
-        // Encontrar siguiente nivel
+        // Find next level
         const sortedNiveles = Array.isArray(niveles) ? niveles.sort((a, b) => (a.orden || 0) - (b.orden || 0)) : [];
         const nextLevel = sortedNiveles.find(n => (n.orden || n.IdNiveles || 0) > currentLevel) || sortedNiveles[0];
         
@@ -267,7 +349,7 @@ async function loadSyllabus() {
     }
 }
 
-// Inicializar todo cuando el DOM esté listo
+// Initialize everything when DOM is ready
 window.addEventListener('DOMContentLoaded', () => {
     initializeHomePage();
 });

@@ -1,5 +1,4 @@
 using Microsoft.AspNetCore.Mvc;
-using System;
 using System.Diagnostics;
 using System.Text;
 using DorjaData.Repositories;
@@ -38,7 +37,6 @@ namespace BACK.Controllers
                 var output = new StringBuilder();
                 var error = new StringBuilder();
                 string command = "";
-                string fileExtension = "";
                 string tempFile = "";
 
                 // Determine command and file extension based on language
@@ -71,14 +69,12 @@ namespace BACK.Controllers
                     {
                         command = "python";
                     }
-                    fileExtension = ".py";
                     tempFile = Path.Combine(Path.GetTempPath(), $"code_exec_{Guid.NewGuid()}.py");
                 }
                 else if (request.Language.ToLower() == "csharp" || request.Language.ToLower() == "c#")
                 {
                     // For C#, use dotnet script to run C# scripts
                     command = "dotnet";
-                    fileExtension = ".csx"; // C# script extension
                     tempFile = Path.Combine(Path.GetTempPath(), $"code_exec_{Guid.NewGuid()}.csx");
                 }
                 else

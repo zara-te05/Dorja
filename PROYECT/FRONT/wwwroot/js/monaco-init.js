@@ -87,13 +87,13 @@ public class Program
             renderLineHighlight: 'all',
             lineNumbers: 'on',
             wordWrap: 'on',
-            // Habilitar IntelliSense
+            // Enable IntelliSense
             quickSuggestions: true,
             suggestOnTriggerCharacters: true,
             acceptSuggestionOnEnter: 'on',
             tabCompletion: 'on',
             wordBasedSuggestions: 'allDocuments',
-            // Configuraciones adicionales de IntelliSense
+            // Additional IntelliSense settings
             parameterHints: { enabled: true },
             hover: { enabled: true },
             formatOnPaste: true,
@@ -109,14 +109,14 @@ public class Program
         const verifyBtn = document.getElementById('verify-btn');
         const languageSelector = document.getElementById('language-selector');
 
-        // Manejador del selector de lenguaje
+        // Language selector handler
         languageSelector.addEventListener('change', (e) => {
             const newLanguage = e.target.value;
             const currentValue = editor.getValue();
             
-            // Guardar código actual si el usuario quiere cambiar
+            // Save current code if user wants to switch
             if (currentLanguage === 'python' && currentValue !== pythonDefaultCode) {
-                // Podría guardarse en localStorage aquí
+                // Could save to localStorage here
             }
             
             currentLanguage = newLanguage;

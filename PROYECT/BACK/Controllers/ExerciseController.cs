@@ -19,33 +19,6 @@ namespace BACK.Controllers
         /// <summary>
         /// Gets a random problem for the user based on their current level
         /// </summary>
-        [HttpGet("next/{userId}")]
-        public async Task<IActionResult> GetNextProblem(int userId)
-        {
-            try
-            {
-                var problema = await _exerciseService.GetRandomProblemForUser(userId);
-                if (problema == null)
-                {
-                    return NotFound(new { message = "No se encontró un problema disponible" });
-                }
-                return Ok(problema);
-            }
-            catch (Exception ex)
-            {
-                Console.WriteLine($"Error getting next problem for user {userId}: {ex.Message}");
-                Console.WriteLine($"Stack trace: {ex.StackTrace}");
-                // Return a more user-friendly error message
-                var errorMessage = ex.Message.Contains("no encontrado") || ex.Message.Contains("No hay problemas")
-                    ? ex.Message
-                    : "Error al cargar el problema. Por favor, intenta de nuevo.";
-                return StatusCode(500, new { message = errorMessage });
-            }
-        }
-
-        /// <summary>
-        /// Gets a random problem for the user (legacy endpoint - redirects to next)
-        /// </summary>
         [HttpGet("random/{userId}")]
         public async Task<IActionResult> GetRandomProblem(int userId)
         {
@@ -57,29 +30,6 @@ namespace BACK.Controllers
             catch (Exception ex)
             {
                 return BadRequest(new { message = ex.Message });
-            }
-        }
-
-        /// <summary>
-        /// Gets user's progress statistics
-        /// </summary>
-        [HttpGet("progress/{userId}")]
-        public async Task<IActionResult> GetUserProgress(int userId)
-        {
-            try
-            {
-                var progress = await _exerciseService.GetUserProgress(userId);
-                if (progress == null)
-                {
-                    return NotFound(new { message = "No se pudo obtener el progreso del usuario" });
-                }
-                return Ok(progress);
-            }
-            catch (Exception ex)
-            {
-                Console.WriteLine($"Error getting user progress: {ex.Message}");
-                Console.WriteLine($"Stack trace: {ex.StackTrace}");
-                return StatusCode(500, new { message = ex.Message });
             }
         }
 
