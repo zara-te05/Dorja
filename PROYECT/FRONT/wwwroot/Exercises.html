@@ -7,9 +7,11 @@
   <title>Problemas - Dorja</title>
   <link href="css/output.css" rel="stylesheet">
   <style>
-    html, body {
+    html,
+    body {
       height: 100%;
-      overflow-y: auto; /* Cambiado de scroll a auto para mostrar solo cuando sea necesario */
+      overflow-y: auto;
+      /* Cambiado de scroll a auto para mostrar solo cuando sea necesario */
       overflow-x: hidden;
     }
 
@@ -86,7 +88,8 @@
       display: block !important;
       visibility: visible !important;
       opacity: 1 !important;
-      overflow-y: auto; /* Añadido para permitir scroll */
+      overflow-y: auto;
+      /* Añadido para permitir scroll */
     }
 
     .tema {
@@ -97,11 +100,13 @@
     /* Estilos adicionales para asegurar que las barras de desplazamiento funcionen */
     .fixed.top-\[65px\] {
       height: calc(100vh - 65px);
-      overflow-y: auto; /* Añadido para permitir scroll en el contenedor principal */
+      overflow-y: auto;
+      /* Añadido para permitir scroll en el contenedor principal */
     }
 
     .flex-1.overflow-y-auto {
-      overflow-y: auto !important; /* Asegurar que los contenedores con esta clase tengan scroll */
+      overflow-y: auto !important;
+      /* Asegurar que los contenedores con esta clase tengan scroll */
     }
 
     /* Estilo para las barras de desplazamiento */
@@ -172,7 +177,7 @@
         <div class="p-4 border-b border-gray-200 dark:border-slate-700 flex-shrink-0">
           <div class="flex items-center justify-between mb-2">
             <h3 class="font-bold text-gray-800 dark:text-white">Temario</h3>
-            <select id="nivel-selector" 
+            <select id="nivel-selector"
               class="text-xs px-2 py-1 bg-gray-100 dark:bg-slate-700 text-gray-700 dark:text-slate-300 rounded border border-gray-300 dark:border-slate-600 focus:outline-none focus:ring-2 focus:ring-indigo-500">
               <option value="1">Nivel 1</option>
               <option value="2">Nivel 2</option>
@@ -283,6 +288,8 @@
   <script src="./js/theme-toggle.js"></script>
   <script src="./js/monaco-init.js"></script>
   <script src="./js/problems-renderer.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
+  <script src="./js/pdf-generator.js"></script>
   <script>
     document.addEventListener('DOMContentLoaded', async function () {
       const userId = sessionStorage.getItem('userId');
@@ -290,7 +297,7 @@
         window.location.href = 'login.html';
         return;
       }
-      
+
       // Obtener el nivel actual del usuario
       let nivelId = null;
       try {
@@ -300,7 +307,7 @@
         console.error('Error obteniendo nivel del usuario:', error);
         nivelId = 1; // Nivel por defecto
       }
-      
+
       await window.problemsRenderer.init(userId, nivelId);
 
       // Configurar selector de nivel

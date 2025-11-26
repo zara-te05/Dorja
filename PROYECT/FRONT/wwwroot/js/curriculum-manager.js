@@ -24,7 +24,7 @@ class CurriculumManager {
     async cargarTemas(nivelId = null) {
         try {
             console.log('🔄 Solicitando temas...', nivelId ? `para nivel ${nivelId}` : '');
-            
+
             if (this.useMockData) {
                 console.log('📚 Usando datos de prueba para temas');
                 return await this.getMockTemas(nivelId);
@@ -32,7 +32,7 @@ class CurriculumManager {
 
             const temas = await this.api.cargarTemas(this.currentUser, nivelId);
             console.log('📚 Temas recibidos:', temas);
-            
+
             // Asegurar que los temas estén ordenados por orden
             return temas.sort((a, b) => (a.orden || a.Orden || 0) - (b.orden || b.Orden || 0));
         } catch (error) {
@@ -45,7 +45,7 @@ class CurriculumManager {
     async cargarProblemas(temaId) {
         try {
             console.log('🔄 Solicitando problemas para tema:', temaId);
-            
+
             if (this.useMockData) {
                 console.log('📝 Usando datos de prueba para problemas');
                 return await this.getMockProblemas(temaId);
@@ -64,7 +64,7 @@ class CurriculumManager {
     async obtenerProblema(problemaId) {
         try {
             console.log('🔄 Solicitando problema:', problemaId);
-            
+
             if (this.useMockData) {
                 console.log('📄 Usando datos de prueba para problema');
                 return await this.getMockProblema(problemaId);
@@ -83,7 +83,7 @@ class CurriculumManager {
     async verificarSolucion(codigoUsuario, problemaId) {
         try {
             console.log('🔄 Verificando solución para problema:', problemaId);
-            
+
             if (this.useMockData) {
                 console.log('✅ Usando verificación simulada');
                 return { correcto: true, mensaje: "¡Correcto! (simulado)" };
@@ -91,184 +91,218 @@ class CurriculumManager {
 
             const resultado = await window.api.validateSolution(this.currentUser, problemaId, codigoUsuario);
             console.log('✅ Resultado verificación:', resultado);
-            
-            // Convert to expected format
-            return {
-                correcto: resultado.isCorrect || resultado.IsCorrect || false,
-                mensaje: resultado.message || resultado.Message || "Resultado desconocido",
-                puntosOtorgados: resultado.puntosOtorgados || resultado.PuntosOtorgados || 0
-            };
-        } catch (error) {
-            console.error('❌ Error verificando solución:', error);
-            return { correcto: false, mensaje: "Error al verificar la solución: " + error.message };
-        }
-    }
 
-    async getRandomProblem(userId) {
-        try {
-            console.log('🔄 Obteniendo problema aleatorio para usuario:', userId);
-            
-            if (this.useMockData) {
-                const problemas = await this.getMockProblemas(1);
-                if (problemas.length > 0) {
-                    return problemas[0];
+            // Convert to expected format
+    async checkFirstExerciseCompletion() {
+                try {
+                    // Verificar que el API esté disponible
+                    if (!window.api || !window.api.getProgresoByUserId) {
+                        console.log('⚠ API de progreso no disponible, saltando generación de PDF');
+                        return;
+                    }
+
+                    // Obtener el progreso del usuario
+                    const progreso = await window.api.getProgresoByUserId(this.currentUser);
+
+                    // Validar que progreso sea un array
+                    if (!Array.isArray(progreso)) {
+                        console.log('⚠ Progreso no es un array válido, saltando generación de PDF');
+                        return;
+                    }
+
+                    // Contar cuántos ejercicios ha completado
+                    const ejerciciosCompletados = progreso.filter(p => p.completado || p.Completado).length;
+
+                    console.log('📊 Ejercicios completados:', ejerciciosCompletados);
+
+                    // Si es el primer ejercicio completado, generar el PDF
+                    if (ejerciciosCompletados === 1) {
+                        console.log('🎉 ¡Primer ejercicio completado! Generando certificado...');
+
+                        // Obtener los datos del usuario
+                        const userData = await window.api.getUserById(this.currentUser);
+
+                        if (userData && typeof window.generateCertificatePDF === 'function') {
+                            // Pequeño delay para que el usuario vea el mensaje de éxito primero
+                            setTimeout(() => {
+                                window.generateCertificatePDF(userData);
+                            }, 1500);
+                        } else {
+                            console.warn('⚠ No se pudo generar el certificado: función no disponible o usuario no encontrado');
+                        }
+                    }
+                } catch (error) {
+                    console.error('❌ Error al verificar primer ejercicio:', error);
+                    // No lanzar el error para no interrumpir el flujo normal
+                    // La verificación de ejercicios debe continuar aunque falle la generación del PDF
                 }
-                return null;
             }
 
-            const problema = await window.api.getRandomProblem(userId);
-            console.log('✅ Problema aleatorio obtenido:', problema);
-            return problema;
-        } catch (error) {
-            console.error('❌ Error obteniendo problema aleatorio:', error);
-            return null;
-        }
-    }
+    async getRandomProblem(userId) {
+                try {
+                    console.log('🔄 Obteniendo problema aleatorio para usuario:', userId);
+
+                    if (this.useMockData) {
+                        const problemas = await this.getMockProblemas(1);
+                        if (problemas.length > 0) {
+                            return problemas[0];
+                        }
+                        return null;
+                    }
+
+                    const problema = await window.api.getRandomProblem(userId);
+                    console.log('✅ Problema aleatorio obtenido:', problema);
+                    return problema;
+                } catch (error) {
+                    console.error('❌ Error obteniendo problema aleatorio:', error);
+                    return null;
+                }
+            }
 
     // Datos de prueba para desarrollo
     async getMockTemas(nivelId = null) {
-        const todosLosTemas = [
-            {
-                id: 1,
-                IdTemas: 1,
-                titulo: "Variables en Python",
-                descripcion: "Aprende los fundamentos de las variables",
-                orden: 1,
-                IdNivel: 1,
-                locked: 0,
-                total_problemas: 3,
-                problemas_completados: 0
-            },
-            {
-                id: 2,
-                IdTemas: 2,
-                titulo: "Condicionales",
-                descripcion: "Estructuras if, else, elif",
-                orden: 2,
-                IdNivel: 1,
-                locked: 1,
-                total_problemas: 0,
-                problemas_completados: 0
-            },
-            {
-                id: 3,
-                IdTemas: 3,
-                titulo: "Bucles",
-                descripcion: "For y while loops",
-                orden: 3,
-                IdNivel: 1,
-                locked: 1,
-                total_problemas: 0,
-                problemas_completados: 0
-            },
-            {
-                id: 4,
-                IdTemas: 4,
-                titulo: "Funciones Básicas",
-                descripcion: "Aprende a crear y usar funciones",
-                orden: 1,
-                IdNivel: 2,
-                locked: 1,
-                total_problemas: 0,
-                problemas_completados: 0
-            },
-            {
-                id: 5,
-                IdTemas: 5,
-                titulo: "Listas y Diccionarios",
-                descripcion: "Estructuras de datos básicas",
-                orden: 2,
-                IdNivel: 2,
-                locked: 1,
-                total_problemas: 0,
-                problemas_completados: 0
-            },
-            {
-                id: 6,
-                IdTemas: 6,
-                titulo: "Programación Orientada a Objetos",
-                descripcion: "Clases y objetos",
-                orden: 1,
-                IdNivel: 3,
-                locked: 1,
-                total_problemas: 0,
-                problemas_completados: 0
+                const todosLosTemas = [
+                    {
+                        id: 1,
+                        IdTemas: 1,
+                        titulo: "Variables en Python",
+                        descripcion: "Aprende los fundamentos de las variables",
+                        orden: 1,
+                        IdNivel: 1,
+                        locked: 0,
+                        total_problemas: 3,
+                        problemas_completados: 0
+                    },
+                    {
+                        id: 2,
+                        IdTemas: 2,
+                        titulo: "Condicionales",
+                        descripcion: "Estructuras if, else, elif",
+                        orden: 2,
+                        IdNivel: 1,
+                        locked: 1,
+                        total_problemas: 0,
+                        problemas_completados: 0
+                    },
+                    {
+                        id: 3,
+                        IdTemas: 3,
+                        titulo: "Bucles",
+                        descripcion: "For y while loops",
+                        orden: 3,
+                        IdNivel: 1,
+                        locked: 1,
+                        total_problemas: 0,
+                        problemas_completados: 0
+                    },
+                    {
+                        id: 4,
+                        IdTemas: 4,
+                        titulo: "Funciones Básicas",
+                        descripcion: "Aprende a crear y usar funciones",
+                        orden: 1,
+                        IdNivel: 2,
+                        locked: 1,
+                        total_problemas: 0,
+                        problemas_completados: 0
+                    },
+                    {
+                        id: 5,
+                        IdTemas: 5,
+                        titulo: "Listas y Diccionarios",
+                        descripcion: "Estructuras de datos básicas",
+                        orden: 2,
+                        IdNivel: 2,
+                        locked: 1,
+                        total_problemas: 0,
+                        problemas_completados: 0
+                    },
+                    {
+                        id: 6,
+                        IdTemas: 6,
+                        titulo: "Programación Orientada a Objetos",
+                        descripcion: "Clases y objetos",
+                        orden: 1,
+                        IdNivel: 3,
+                        locked: 1,
+                        total_problemas: 0,
+                        problemas_completados: 0
+                    }
+                ];
+
+                // Filtrar por nivel si se especifica
+                if (nivelId !== null && nivelId !== undefined) {
+                    return todosLosTemas.filter(t =>
+                        (t.IdNivel === nivelId || t.idNivel === nivelId || t.nivel_id === nivelId || t.nivelId === nivelId)
+                    );
+                }
+
+                return todosLosTemas;
             }
-        ];
-        
-        // Filtrar por nivel si se especifica
-        if (nivelId !== null && nivelId !== undefined) {
-            return todosLosTemas.filter(t => 
-                (t.IdNivel === nivelId || t.idNivel === nivelId || t.nivel_id === nivelId || t.nivelId === nivelId)
-            );
-        }
-        
-        return todosLosTemas;
-    }
 
     async getMockProblemas(temaId) {
-        if (temaId === 1) {
-            return [
-                {
-                    id: 1,
-                    tema_id: 1,
-                    titulo: "Declaración de variables",
-                    descripcion: "Crea una variable llamada 'nombre' y asígnale tu nombre",
-                    ejemplo: "nombre = 'Ana'",
-                    dificultad: "Fácil",
-                    codigo_inicial: "# Escribe tu código aquí\n",
-                    solucion: "nombre = 'Ana'",
-                    orden: 1,
-                    locked: 0,
-                    puntos_otorgados: 10,
-                    resuelto: false,
-                    puntuacion: 0,
-                    ultimo_codigo: null
-                },
-                {
-                    id: 2,
-                    tema_id: 1,
-                    titulo: "Múltiples variables",
-                    descripcion: "Crea tres variables: nombre (texto), edad (número) y activo (booleano)",
-                    ejemplo: "nombre = 'Juan', edad = 25, activo = True",
-                    dificultad: "Fácil",
-                    codigo_inicial: "# Escribe tu código aquí\n",
-                    solucion: "nombre = 'Juan'\nedad = 25\nactivo = True",
-                    orden: 2,
-                    locked: 1,
-                    puntos_otorgados: 15,
-                    resuelto: false,
-                    puntuacion: 0,
-                    ultimo_codigo: null
-                },
-                {
-                    id: 3,
-                    tema_id: 1,
-                    titulo: "Operaciones con variables",
-                    descripcion: "Crea dos variables numéricas y calcula su suma, resta y multiplicación",
-                    ejemplo: "a = 10, b = 5 → suma = 15, resta = 5, multiplicacion = 50",
-                    dificultad: "Medio",
-                    codigo_inicial: "# Escribe tu código aquí\n",
-                    solucion: "a = 10\nb = 5\nsuma = a + b\nresta = a - b\nmultiplicacion = a * b",
-                    orden: 3,
-                    locked: 1,
-                    puntos_otorgados: 20,
-                    resuelto: false,
-                    puntuacion: 0,
-                    ultimo_codigo: null
+                if (temaId === 1) {
+                    return [
+                        {
+                            id: 1,
+                            tema_id: 1,
+                            titulo: "Declaración de variables",
+                            descripcion: "Crea una variable llamada 'nombre' y asígnale tu nombre",
+                            ejemplo: "nombre = 'Ana'",
+                            dificultad: "Fácil",
+                            codigo_inicial: "# Escribe tu código aquí\n",
+                            solucion: "nombre = 'Ana'",
+                            orden: 1,
+                            locked: 0,
+                            puntos_otorgados: 10,
+                            resuelto: false,
+                            puntuacion: 0,
+                            ultimo_codigo: null
+                        },
+                        {
+                            id: 2,
+                            tema_id: 1,
+                            titulo: "Múltiples variables",
+                            descripcion: "Crea tres variables: nombre (texto), edad (número) y activo (booleano)",
+                            ejemplo: "nombre = 'Juan', edad = 25, activo = True",
+                            dificultad: "Fácil",
+                            codigo_inicial: "# Escribe tu código aquí\n",
+                            solucion: "nombre = 'Juan'\nedad = 25\nactivo = True",
+                            orden: 2,
+                            locked: 1,
+                            puntos_otorgados: 15,
+                            resuelto: false,
+                            puntuacion: 0,
+                            ultimo_codigo: null
+                        },
+                        {
+                            id: 3,
+                            tema_id: 1,
+                            titulo: "Operaciones con variables",
+                            descripcion: "Crea dos variables numéricas y calcula su suma, resta y multiplicación",
+                            ejemplo: "a = 10, b = 5 → suma = 15, resta = 5, multiplicacion = 50",
+                            dificultad: "Medio",
+                            codigo_inicial: "# Escribe tu código aquí\n",
+                            solucion: "a = 10\nb = 5\nsuma = a + b\nresta = a - b\nmultiplicacion = a * b",
+                            orden: 3,
+                            locked: 1,
+                            puntos_otorgados: 20,
+                            resuelto: false,
+                            puntuacion: 0,
+                            ultimo_codigo: null
+                        }
+                    ];
                 }
-            ];
-        }
-        return [];
-    }
+                return [];
+            }
 
     async getMockProblema(problemaId) {
-        const problemas = await this.getMockProblemas(1);
-        return problemas.find(p => p.id === problemaId) || null;
-    }
-}
+                const problemas = await this.getMockProblemas(1);
+                return problemas.find(p => p.id === problemaId) || null;
+            }
+        }
 
 // Solo crear la instancia si no existe
 if (!window.curriculumManager) {
-    window.curriculumManager = new CurriculumManager();
-}
+            window.curriculumManager = new CurriculumManager();
+        }

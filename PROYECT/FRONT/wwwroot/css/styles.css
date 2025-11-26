@@ -20,12 +20,10 @@ body::before {
   content: '';
   position: fixed;
   inset: 0;
-  z-index: -1; 
-  background: radial-gradient(
-    600px circle at var(--mouse-x, 50%) var(--mouse-y, 50%),
-    rgba(93, 144, 238, 0.15),
-    transparent 30%
-  );
+  z-index: -1;
+  background: radial-gradient(600px circle at var(--mouse-x, 50%) var(--mouse-y, 50%),
+      rgba(93, 144, 238, 0.15),
+      transparent 30%);
 }
 
 body::after {
@@ -38,19 +36,15 @@ body::after {
 
 /*MODO OSCURO*/
 .dark body::before {
-  background: radial-gradient(
-    600px circle at var(--mouse-x, 50%) var(--mouse-y, 50%),
-    rgba(99, 101, 241, 0.13),
-    transparent 45%
-  );
+  background: radial-gradient(600px circle at var(--mouse-x, 50%) var(--mouse-y, 50%),
+      rgba(99, 101, 241, 0.13),
+      transparent 45%);
 }
 
 .dark body::after {
-  background: radial-gradient(
-    1200px circle at 50% 50%,
-    rgba(169, 85, 247, 0.178),
-    transparent 40%
-  );
+  background: radial-gradient(1200px circle at 50% 50%,
+      rgba(169, 85, 247, 0.178),
+      transparent 40%);
 }
 
 
@@ -58,22 +52,25 @@ body::after {
   0% {
     transform: translate(20%, -20%) rotate(0deg);
   }
+
   25% {
     transform: translate(-20%, 20%) rotate(90deg);
   }
+
   50% {
     transform: translate(20%, 20%) rotate(180deg);
   }
+
   75% {
     transform: translate(-20%, -20%) rotate(270deg);
   }
+
   100% {
     transform: translate(20%, -20%) rotate(360deg);
   }
 }
 
-/* Estilos personalizados para scrollbars */
-/* Para navegadores basados en WebKit (Chrome, Safari, Edge) */
+/* Scrollbars */
 ::-webkit-scrollbar {
   width: 10px;
   height: 10px;
@@ -102,7 +99,6 @@ body::after {
   background: rgba(71, 85, 105, 0.8);
 }
 
-/* Para Firefox */
 * {
   scrollbar-width: thin;
   scrollbar-color: rgba(156, 163, 175, 0.5) transparent;
