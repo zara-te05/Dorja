@@ -2,7 +2,7 @@
 
 <div align="center">
 
-![Dorja Logo](https://via.placeholder.com/200x200/6366f1/ffffff?text=DORJA)
+<img src="https://media4.giphy.com/media/v1.Y2lkPTc5MGI3NjExZW1lbndrZWsxam1laTlvYXU3NG91bnBhZGxpeG9qM2gyOTZpOWw4ZSZlcD12MV9pbnRlcm5hbF9naWZfYnlfaWQmY3Q9Zw/kmRdfWJ4PGmBxiu6hc/giphy.gif" width="150">
 
 **Una plataforma educativa interactiva para aprender programación de manera práctica y divertida**
 
@@ -403,8 +403,12 @@ Este proyecto está bajo la Licencia MIT. Ver el archivo `LICENSE` para más det
 
 ## 👥 Autores
 
-- **Equipo Dorja** - [@zara-te05](https://github.com/zara-te05)
+*   **Equipo Dorja** - [@zara-te05](https://github.com/zara-te05)
 
+*   **Luis Castillo** - Desarrollador Full-Stack - https://github.com/LuisCastilloMartinez
+*   **Diego Zarate** - Desarrollador Backend - https://github.com/zara-te05
+*   **Diana Reyes** - Desarrollador Frontend y Tester- https://github.com/dianareyeshdz10-gif
+*   **Manuel Andrade** - Desarrollador Backend - https://github.com/Manuelandrade27
 ---
 
 ## 🙏 Agradecimientos
