@@ -52,7 +52,10 @@ namespace DorjaData.Repositories
 
         public async Task<bool> InsertProgreso_Problemas(Progreso_Problema progreso_problema)
         {
-            var db = dbConnection();
+            using var db = dbConnection();
+            await db.OpenAsync();
+            await db.ExecuteAsync("PRAGMA foreign_keys = ON");
+            
             var sql = @"INSERT INTO progreso_problema 
                         (user_id, problema_id, completado, puntuacion, intentos, ultimo_codigo, fecha_completado) 
                         VALUES 
@@ -63,7 +66,10 @@ namespace DorjaData.Repositories
 
         public async Task<bool> UpdateProgreso_Problemas(Progreso_Problema progreso_problema)
         {
-            var db = dbConnection();
+            using var db = dbConnection();
+            await db.OpenAsync();
+            await db.ExecuteAsync("PRAGMA foreign_keys = ON");
+            
             var sql = @"UPDATE progreso_problema SET
                             user_id = @UserId,
                             problema_id = @ProblemaId,

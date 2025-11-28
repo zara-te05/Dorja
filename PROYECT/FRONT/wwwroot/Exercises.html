@@ -11,7 +11,6 @@
     body {
       height: 100%;
       overflow-y: auto;
-      /* Cambiado de scroll a auto para mostrar solo cuando sea necesario */
       overflow-x: hidden;
     }
 
@@ -83,30 +82,89 @@
       background-color: #1e3a8a;
     }
 
-    /* Asegurar que el sidebar de temas sea visible y tenga scroll */
+    /* Layout principal corregido */
+    .main-container {
+      display: grid;
+      grid-template-columns: 280px 280px 1fr;
+      grid-template-rows: 1fr;
+      height: calc(100vh - 65px);
+      margin-top: 65px;
+    }
+
+    /* Sidebar de temas */
     #topics-sidebar {
       display: block !important;
       visibility: visible !important;
       opacity: 1 !important;
       overflow-y: auto;
-      /* Añadido para permitir scroll */
+      border-right: 1px solid #e5e7eb;
     }
 
-    .tema {
-      display: block;
-      visibility: visible;
+    .dark #topics-sidebar {
+      border-right-color: #374151;
     }
 
-    /* Estilos adicionales para asegurar que las barras de desplazamiento funcionen */
-    .fixed.top-\[65px\] {
-      height: calc(100vh - 65px);
+    /* Sidebar de problemas */
+    #problems-sidebar {
       overflow-y: auto;
-      /* Añadido para permitir scroll en el contenedor principal */
+      border-right: 1px solid #e5e7eb;
     }
 
-    .flex-1.overflow-y-auto {
-      overflow-y: auto !important;
-      /* Asegurar que los contenedores con esta clase tengan scroll */
+    .dark #problems-sidebar {
+      border-right-color: #374151;
+    }
+
+    /* Área de contenido principal */
+    .content-area {
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+      padding: 1.5rem;
+      gap: 1.5rem;
+    }
+
+    /* Panel del problema con altura fija */
+    .problem-panel {
+      flex: 0 0 auto;
+      max-height: 40%;
+      min-height: 200px;
+      overflow-y: auto;
+    }
+
+    /* Área del editor y consola */
+    .editor-area {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      min-height: 0;
+      gap: 1.5rem;
+    }
+
+    /* Editor de código */
+    .code-editor {
+      flex: 1;
+      min-height: 0;
+    }
+
+    /* Consola */
+    .console-panel {
+      flex: 0 0 30%;
+      min-height: 150px;
+      max-height: 250px;
+    }
+
+    /* Responsive */
+    @media (max-width: 1024px) {
+      .main-container {
+        grid-template-columns: 1fr;
+        grid-template-rows: auto auto 1fr;
+      }
+      
+      #topics-sidebar, 
+      #problems-sidebar {
+        height: auto;
+        max-height: 200px;
+      }
     }
 
     /* Estilo para las barras de desplazamiento */
@@ -169,113 +227,99 @@
     </div>
   </header>
 
-  <div class="fixed top-[65px] left-0 w-full h-[calc(100vh-65px)] p-4 sm:p-6 lg:p-8 overflow-y-auto">
-    <div class="grid lg:grid-cols-6 gap-6 h-full">
-      <!-- Sidebar de Temas -->
-      <div
-        class="lg:col-span-1 bg-white dark:bg-slate-800 border border-gray-200 dark:border-slate-700 shadow-lg rounded-xl flex flex-col h-full min-h-0">
-        <div class="p-4 border-b border-gray-200 dark:border-slate-700 flex-shrink-0">
-          <div class="flex items-center justify-between mb-2">
-            <h3 class="font-bold text-gray-800 dark:text-white">Temario</h3>
-            <select id="nivel-selector"
-              class="text-xs px-2 py-1 bg-gray-100 dark:bg-slate-700 text-gray-700 dark:text-slate-300 rounded border border-gray-300 dark:border-slate-600 focus:outline-none focus:ring-2 focus:ring-indigo-500">
-              <option value="1">Nivel 1</option>
-              <option value="2">Nivel 2</option>
-              <option value="3">Nivel 3</option>
+  <!-- Contenedor principal corregido -->
+  <div class="main-container">
+    <!-- Sidebar de Temas -->
+    <div id="topics-sidebar" class="bg-white dark:bg-slate-800 shadow-lg overflow-y-auto">
+      <div class="p-4 border-b border-gray-200 dark:border-slate-700">
+        <h3 class="font-bold text-gray-800 dark:text-white mb-2">Temas</h3>
+        <div class="text-sm text-gray-600 dark:text-slate-400" id="topics-count">Cargando temas...</div>
+      </div>
+      <div class="p-2" id="topics-list">
+        <div class="text-gray-500 dark:text-slate-400 text-sm p-4">Cargando temas...</div>
+      </div>
+    </div>
+
+    <!-- Sidebar de Problemas -->
+    <div id="problems-sidebar" class="bg-white dark:bg-slate-800 shadow-lg overflow-y-auto">
+      <div class="p-4 border-b border-gray-200 dark:border-slate-700">
+        <h3 class="font-bold text-gray-800 dark:text-white mb-2" id="problems-title">Problemas</h3>
+        <div class="text-sm text-gray-600 dark:text-slate-400" id="problems-count">Selecciona un tema</div>
+      </div>
+      <div class="p-2" id="problems-list">
+        <div class="text-gray-500 dark:text-slate-400 text-sm p-4">Selecciona un tema para ver los problemas</div>
+      </div>
+    </div>
+
+    <!-- Área de Contenido Principal -->
+    <div class="content-area">
+      <!-- Panel del Problema -->
+      <div class="problem-panel bg-white dark:bg-slate-800 border border-gray-200 dark:border-slate-700 shadow-lg rounded-xl overflow-hidden">
+        <div class="p-6 border-b border-gray-200 dark:border-slate-700 flex justify-between items-center">
+          <div>
+            <h2 class="text-2xl font-bold text-gray-800 dark:text-indigo-400" id="problem-title">Selecciona un problema</h2>
+            <div class="flex items-center gap-4 mt-2">
+              <span class="text-sm text-gray-600 dark:text-slate-400" id="problem-info">-</span>
+              <span
+                class="text-sm px-2 py-1 bg-green-100 dark:bg-green-900 text-green-800 dark:text-green-200 rounded hidden"
+                id="completed-badge">✓ Completado</span>
+            </div>
+          </div>
+          <div class="flex items-center gap-4">
+            <span class="text-sm text-gray-600 dark:text-slate-400" id="problem-counter">-/-</span>
+            <div class="flex gap-2">
+              <button id="prev-problem-btn"
+                class="px-3 py-1 text-sm font-semibold bg-gray-200 hover:bg-gray-300 dark:bg-slate-700 dark:hover:bg-slate-600 text-slate-800 dark:text-white rounded-md transition-colors disabled:opacity-50"
+                disabled>←</button>
+              <button id="next-problem-btn"
+                class="px-3 py-1 text-sm font-semibold bg-gray-200 hover:bg-gray-300 dark:bg-slate-700 dark:hover:bg-slate-600 text-slate-800 dark:text-white rounded-md transition-colors disabled:opacity-50"
+                disabled>→</button>
+            </div>
+          </div>
+        </div>
+        <div class="p-6 overflow-y-auto">
+          <div class="prose prose-sm dark:prose-invert max-w-none text-gray-600 dark:text-slate-300"
+            id="problem-description">
+            <p>Selecciona un problema de la lista para comenzar a programar.</p>
+          </div>
+        </div>
+      </div>
+
+      <!-- Editor y Consola -->
+      <div class="editor-area">
+        <!-- Editor de Código -->
+        <div class="code-editor bg-slate-900 rounded-xl shadow-2xl overflow-hidden flex flex-col">
+          <div class="bg-slate-800 border-b border-slate-700 px-4 py-2 flex items-center justify-between">
+            <div class="flex items-center gap-2">
+              <div class="w-3 h-3 rounded-full bg-red-500"></div>
+              <div class="w-3 h-3 rounded-full bg-yellow-500"></div>
+              <div class="w-3 h-3 rounded-full bg-green-500"></div>
+              <span class="ml-2 text-sm text-slate-400">IDE de ejercicio</span>
+            </div>
+            <select id="language-selector"
+              class="bg-slate-700 text-slate-200 text-sm px-3 py-1 rounded border border-slate-600 focus:outline-none focus:ring-2 focus:ring-indigo-500">
+              <option value="python">Python</option>
             </select>
           </div>
-          <div class="text-sm text-gray-600 dark:text-slate-400" id="progress-text">Cargando...</div>
+          <div id="editor" class="flex-grow"></div>
         </div>
-        <div class="flex-1 overflow-y-auto p-4 min-h-0" id="topics-sidebar">
-          <!-- Los temas se cargarán aquí dinámicamente -->
-          <div class="text-gray-500 dark:text-slate-400">Cargando temas...</div>
-        </div>
-      </div>
 
-      <!-- Sidebar de Problemas -->
-      <div
-        class="lg:col-span-1 bg-white dark:bg-slate-800 border border-gray-200 dark:border-slate-700 shadow-lg rounded-xl flex flex-col overflow-hidden">
-        <div class="p-4 border-b border-gray-200 dark:border-slate-700">
-          <h3 class="font-bold text-gray-800 dark:text-white mb-2" id="problems-title">Problemas</h3>
-          <div class="text-sm text-gray-600 dark:text-slate-400" id="problems-count">Selecciona un tema</div>
-        </div>
-        <div class="flex-1 overflow-y-auto p-2" id="problems-list">
-          <div class="text-gray-500 dark:text-slate-400 text-sm p-4">Selecciona un tema para ver los problemas</div>
-        </div>
-      </div>
-
-      <!-- Área Principal del Problema -->
-      <div class="lg:col-span-4 flex flex-col gap-6 h-full">
-        <!-- Panel del Problema -->
-        <div
-          class="bg-white dark:bg-slate-800 border border-gray-200 dark:border-slate-700 shadow-lg rounded-xl flex flex-col overflow-hidden flex-shrink-0">
-          <div class="p-6 border-b border-gray-200 dark:border-slate-700 flex justify-between items-center">
-            <div>
-              <h2 class="text-2xl font-bold text-gray-800 dark:text-indigo-400" id="problem-title">Selecciona un
-                problema</h2>
-              <div class="flex items-center gap-4 mt-2">
-                <span class="text-sm text-gray-600 dark:text-slate-400" id="problem-info">-</span>
-                <span
-                  class="text-sm px-2 py-1 bg-green-100 dark:bg-green-900 text-green-800 dark:text-green-200 rounded hidden"
-                  id="completed-badge">✓ Completado</span>
-              </div>
-            </div>
-            <div class="flex items-center gap-4">
-              <span class="text-sm text-gray-600 dark:text-slate-400" id="problem-counter">-/-</span>
-              <div class="flex gap-2">
-                <button id="prev-problem-btn"
-                  class="px-3 py-1 text-sm font-semibold bg-gray-200 hover:bg-gray-300 dark:bg-slate-700 dark:hover:bg-slate-600 text-slate-800 dark:text-white rounded-md transition-colors disabled:opacity-50"
-                  disabled>←</button>
-                <button id="next-problem-btn"
-                  class="px-3 py-1 text-sm font-semibold bg-gray-200 hover:bg-gray-300 dark:bg-slate-700 dark:hover:bg-slate-600 text-slate-800 dark:text-white rounded-md transition-colors disabled:opacity-50"
-                  disabled>→</button>
-              </div>
+        <!-- Consola -->
+        <div class="console-panel bg-white dark:bg-slate-800 border border-gray-200 dark:border-slate-700 shadow-lg rounded-xl overflow-hidden flex flex-col">
+          <div class="p-4 border-b border-gray-200 dark:border-slate-700 flex justify-between items-center">
+            <h2 class="text-lg font-bold text-gray-800 dark:text-indigo-400">Consola</h2>
+            <div class="flex gap-4">
+              <button id="run-btn"
+                class="px-4 py-1.5 text-sm font-semibold bg-gray-200 hover:bg-gray-300 dark:bg-slate-700 dark:hover:bg-slate-600 text-slate-800 dark:text-white rounded-md transition-colors disabled:opacity-50"
+                disabled>Ejecutar</button>
+              <button id="verify-btn"
+                class="px-5 py-1.5 text-sm font-semibold bg-indigo-600 hover:bg-indigo-700 text-white rounded-md transition-colors disabled:bg-slate-400 dark:disabled:bg-slate-600 disabled:cursor-not-allowed"
+                disabled>Verificar</button>
             </div>
           </div>
-          <div class="p-6 overflow-y-auto flex-1">
-            <div class="prose prose-sm dark:prose-invert max-w-none text-gray-600 dark:text-slate-300"
-              id="problem-description">
-              <p>Selecciona un problema de la lista para comenzar a programar.</p>
-            </div>
-          </div>
-        </div>
-
-        <!-- Editor y Consola -->
-        <div class="flex flex-col gap-6 flex-1 min-h-0">
-          <div class="bg-slate-900 rounded-xl shadow-2xl overflow-hidden flex flex-col flex-grow">
-            <div class="bg-slate-800 border-b border-slate-700 px-4 py-2 flex items-center justify-between">
-              <div class="flex items-center gap-2">
-                <div class="w-3 h-3 rounded-full bg-red-500"></div>
-                <div class="w-3 h-3 rounded-full bg-yellow-500"></div>
-                <div class="w-3 h-3 rounded-full bg-green-500"></div>
-                <span class="ml-2 text-sm text-slate-400">IDE de ejercicio</span>
-              </div>
-              <select id="language-selector"
-                class="bg-slate-700 text-slate-200 text-sm px-3 py-1 rounded border border-slate-600 focus:outline-none focus:ring-2 focus:ring-indigo-500">
-                <option value="python">Python</option>
-                <option value="csharp">C#</option>
-              </select>
-            </div>
-            <div id="editor" class="flex-grow"></div>
-          </div>
-
-          <div
-            class="bg-white dark:bg-slate-800 border border-gray-200 dark:border-slate-700 shadow-lg rounded-xl flex flex-col h-1/3 max-h-[250px] min-h-[150px]">
-            <div class="p-4 border-b border-gray-200 dark:border-slate-700 flex justify-between items-center">
-              <h2 class="text-lg font-bold text-gray-800 dark:text-indigo-400">Consola</h2>
-              <div class="flex gap-4">
-                <button id="run-btn"
-                  class="px-4 py-1.5 text-sm font-semibold bg-gray-200 hover:bg-gray-300 dark:bg-slate-700 dark:hover:bg-slate-600 text-slate-800 dark:text-white rounded-md transition-colors disabled:opacity-50"
-                  disabled>Ejecutar</button>
-                <button id="verify-btn"
-                  class="px-5 py-1.5 text-sm font-semibold bg-indigo-600 hover:bg-indigo-700 text-white rounded-md transition-colors disabled:bg-slate-400 dark:disabled:bg-slate-600 disabled:cursor-not-allowed"
-                  disabled>Verificar</button>
-              </div>
-            </div>
-            <div id="output-content"
-              class="flex-grow p-4 font-mono text-sm text-gray-700 dark:text-slate-300 overflow-y-auto whitespace-pre-wrap">
-              # Selecciona un problema y escribe tu código para comenzar.
-            </div>
+          <div id="output-content"
+            class="flex-grow p-4 font-mono text-sm text-gray-700 dark:text-slate-300 overflow-y-auto whitespace-pre-wrap">
+            # Selecciona un problema y escribe tu código para comenzar.
           </div>
         </div>
       </div>
