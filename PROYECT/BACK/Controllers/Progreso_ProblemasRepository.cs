@@ -18,10 +18,18 @@ namespace BACK.Controllers
 
         // GET: api/ProgresoProblemas
         [HttpGet]
-        public async Task<IActionResult> GetAll()
+        public async Task<IActionResult> GetAll([FromQuery] int? userId)
         {
-            var progresos = await _progresoProblemaRepository.GetAllProgreso_Problemas();
-            return Ok(progresos);
+            // If userId is provided, return progress for that user
+            if (userId.HasValue && userId.Value > 0)
+            {
+                var progresos = await _progresoProblemaRepository.GetByUserId(userId.Value);
+                return Ok(progresos);
+            }
+            
+            // Otherwise return all progress
+            var allProgresos = await _progresoProblemaRepository.GetAllProgreso_Problemas();
+            return Ok(allProgresos);
         }
 
         // GET: api/ProgresoProblemas/5

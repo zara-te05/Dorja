@@ -32,6 +32,13 @@ class CurriculumManager {
 
             const temas = await this.api.cargarTemas(this.currentUser, nivelId);
             console.log('📚 Temas recibidos:', temas);
+            
+            // Log estructura del primer tema para debug
+            if (temas && temas.length > 0) {
+                console.log('🔍 Estructura del primer tema:', temas[0]);
+                console.log('🔍 Claves del primer tema:', Object.keys(temas[0]));
+                console.log('🔍 id:', temas[0].id, 'IdTemas:', temas[0].IdTemas, 'Id:', temas[0].Id);
+            }
 
             // Asegurar que los temas estén ordenados por orden
             return temas.sort((a, b) => (a.orden || a.Orden || 0) - (b.orden || b.Orden || 0));
@@ -82,25 +89,66 @@ class CurriculumManager {
 
     async verificarSolucion(codigoUsuario, problemaId) {
         try {
-            console.log('🔄 Verificando solución para problema:', problemaId);
+            console.log('🔄 Verificando solución para problema:', problemaId, 'usuario:', this.currentUser);
 
             if (this.useMockData) {
                 console.log('✅ Usando verificación simulada');
                 return { correcto: true, mensaje: "¡Correcto! (simulado)" };
             }
 
+            if (!window.api || !window.api.validateSolution) {
+                console.error('❌ API.validateSolution no está disponible');
+                return { correcto: false, mensaje: "Error: API de verificación no disponible" };
+            }
+
             const resultado = await window.api.validateSolution(this.currentUser, problemaId, codigoUsuario);
-            console.log('✅ Resultado verificación:', resultado);
+            console.log('✅ Resultado verificación recibido:', resultado);
+
+            // Handle different response formats from API
+            let finalResult;
+            if (resultado && typeof resultado === 'object') {
+                // If resultado has a data property, use it
+                if (resultado.data) {
+                    finalResult = resultado.data;
+                } 
+                // If resultado has success property, check it
+                else if (resultado.success !== undefined) {
+                    finalResult = {
+                        correcto: resultado.success,
+                        mensaje: resultado.message || resultado.mensaje || (resultado.success ? "¡Correcto!" : "Incorrecto"),
+                        ...resultado
+                    };
+                }
+                // Otherwise use resultado directly
+                else {
+                    finalResult = resultado;
+                }
+            } else {
+                finalResult = { correcto: false, mensaje: "Formato de respuesta inválido" };
+            }
+
+            // Ensure we have the correct format
+            if (finalResult.correcto === undefined && finalResult.IsCorrect !== undefined) {
+                finalResult.correcto = finalResult.IsCorrect;
+            }
+            if (!finalResult.mensaje && finalResult.message) {
+                finalResult.mensaje = finalResult.message;
+            }
+
+            console.log('✅ Resultado final procesado:', finalResult);
 
             // Check if solution is correct to trigger certificate check
-            if (resultado.correcto || resultado.IsCorrect) {
+            if (finalResult.correcto || finalResult.IsCorrect) {
                 this.checkFirstExerciseCompletion();
             }
 
-            return resultado;
+            return finalResult;
         } catch (error) {
             console.error('❌ Error verificando solución:', error);
-            return { correcto: false, mensaje: "Error al verificar la solución" };
+            return { 
+                correcto: false, 
+                mensaje: error.message || "Error al verificar la solución. Verifica tu conexión y vuelve a intentar." 
+            };
         }
     }
 

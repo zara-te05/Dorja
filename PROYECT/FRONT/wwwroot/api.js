@@ -302,24 +302,44 @@ window.api = {
     },
 
     cargarProblemas: async (userId, temaId) => {
-        // Get all problems and filter by temaId, or use a specific endpoint if available
-        const result = await window.api._makeRequest('/Problemas');
-        let problems = [];
-        
-        // Handle different response formats
-        if (Array.isArray(result)) {
-            problems = result;
-        } else if (result.data && Array.isArray(result.data)) {
-            problems = result.data;
-        } else if (result.success && Array.isArray(result.data)) {
-            problems = result.data;
+        try {
+            console.log('🔄 API: Cargando problemas para temaId:', temaId);
+            // Get all problems and filter by temaId, or use a specific endpoint if available
+            const result = await window.api._makeRequest('/Problemas');
+            console.log('📦 API: Resultado crudo:', result);
+            
+            let problems = [];
+            
+            // Handle different response formats
+            if (Array.isArray(result)) {
+                problems = result;
+            } else if (result && Array.isArray(result.data)) {
+                problems = result.data;
+            } else if (result && result.success && Array.isArray(result.data)) {
+                problems = result.data;
+            } else if (result && result.data && typeof result.data === 'object' && !Array.isArray(result.data)) {
+                // Sometimes the API wraps it differently
+                problems = [result.data];
+            }
+            
+            console.log('📝 API: Problemas extraídos:', problems.length);
+            
+            // Filter by temaId if the backend doesn't have a specific endpoint
+            if (problems.length > 0 && temaId) {
+                const filtered = problems.filter(p => {
+                    const pTemaId = p.temaId || p.tema_id || p.TemaId;
+                    return pTemaId === temaId || pTemaId === parseInt(temaId);
+                });
+                console.log('✅ API: Problemas filtrados para temaId', temaId, ':', filtered.length);
+                return filtered;
+            }
+            
+            console.warn('⚠ API: No se encontraron problemas o temaId no válido');
+            return problems;
+        } catch (error) {
+            console.error('❌ API: Error cargando problemas:', error);
+            return [];
         }
-        
-        // Filter by temaId if the backend doesn't have a specific endpoint
-        if (problems.length > 0) {
-            return problems.filter(p => p.temaId === temaId || p.tema_id === temaId || p.TemaId === temaId);
-        }
-        return [];
     },
 
     obtenerProblema: async (problemaId) => {
@@ -361,7 +381,7 @@ window.api = {
     },
 
     getProgresoByUserId: async (userId) => {
-        const result = await window.api._makeRequest(`/Progreso_Problema?userId=${userId}`);
+        const result = await window.api._makeRequest(`/ProgresoProblemas?userId=${userId}`);
         return result.data || result;
     },
 

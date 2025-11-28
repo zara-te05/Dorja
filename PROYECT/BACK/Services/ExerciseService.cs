@@ -88,10 +88,21 @@ namespace BACK.Services
         /// </summary>
         public async Task<ValidationResult> ValidateSolution(int userId, int problemaId, string codigo, string language = "python")
         {
+            // Log for debugging
+            Console.WriteLine($"Validating solution - UserId: {userId}, ProblemaId: {problemaId}, Code length: {codigo?.Length ?? 0}");
+            
             var problema = await _problemaRepository.GetDetails(problemaId);
             if (problema == null)
             {
-                return new ValidationResult { IsCorrect = false, Message = "Problema no encontrado" };
+                // Get all problems to help debug
+                var allProblems = await _problemaRepository.GetAllProblemas();
+                var problemIds = string.Join(", ", allProblems.Take(20).Select(p => $"ID:{p.Id} Tema:{p.TemaId}"));
+                Console.WriteLine($"Problema {problemaId} not found. Available problems: {problemIds}");
+                return new ValidationResult 
+                { 
+                    IsCorrect = false, 
+                    Message = $"Problema con ID {problemaId} no encontrado. Problemas disponibles: {problemIds}" 
+                };
             }
 
             if (string.IsNullOrWhiteSpace(codigo))
@@ -409,19 +420,26 @@ namespace BACK.Services
 
         private async Task UpdateProgress(int userId, int problemaId, string codigo, bool isCorrect, int puntosOtorgados)
         {
-            // Validate that the user exists before attempting to insert
-            var user = await _userRepository.GetDetails(userId);
-            if (user == null)
+            try
             {
-                throw new InvalidOperationException($"No se puede actualizar el progreso: El usuario con ID {userId} no existe.");
-            }
+                // Validate that the user exists before attempting to insert
+                var user = await _userRepository.GetDetails(userId);
+                if (user == null)
+                {
+                    throw new InvalidOperationException($"No se puede actualizar el progreso: El usuario con ID {userId} no existe.");
+                }
 
-            // Validate that the problem exists before attempting to insert
-            var problem = await _problemaRepository.GetDetails(problemaId);
-            if (problem == null)
-            {
-                throw new InvalidOperationException($"No se puede actualizar el progreso: El problema con ID {problemaId} no existe.");
-            }
+                // Validate that the problem exists before attempting to insert
+                var problem = await _problemaRepository.GetDetails(problemaId);
+                if (problem == null)
+                {
+                    // Log available problems for debugging
+                    var allProblems = await _problemaRepository.GetAllProblemas();
+                    var problemIds = string.Join(", ", allProblems.Take(10).Select(p => p.Id));
+                    throw new InvalidOperationException(
+                        $"No se puede actualizar el progreso: El problema con ID {problemaId} no existe en la base de datos. " +
+                        $"Problemas disponibles (primeros 10): {problemIds}");
+                }
 
             try
             {
