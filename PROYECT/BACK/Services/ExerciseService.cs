@@ -419,72 +419,76 @@ namespace BACK.Services
         }
 
         private async Task UpdateProgress(int userId, int problemaId, string codigo, bool isCorrect, int puntosOtorgados)
+{
+    try
+    {
+        // Validate user
+        var user = await _userRepository.GetDetails(userId);
+        if (user == null)
+            throw new InvalidOperationException($"No se puede actualizar el progreso: El usuario con ID {userId} no existe.");
+
+        // Validate problem
+        var problem = await _problemaRepository.GetDetails(problemaId);
+        if (problem == null)
         {
-            try
-            {
-                // Validate that the user exists before attempting to insert
-                var user = await _userRepository.GetDetails(userId);
-                if (user == null)
-                {
-                    throw new InvalidOperationException($"No se puede actualizar el progreso: El usuario con ID {userId} no existe.");
-                }
+            var allProblems = await _problemaRepository.GetAllProblemas();
+            var problemIds = string.Join(", ", allProblems.Take(10).Select(p => p.Id));
+            throw new InvalidOperationException(
+                $"No se puede actualizar el progreso: El problema con ID {problemaId} no existe. " +
+                $"Problemas disponibles (primeros 10): {problemIds}");
+        }
 
-                // Validate that the problem exists before attempting to insert
-                var problem = await _problemaRepository.GetDetails(problemaId);
-                if (problem == null)
-                {
-                    // Log available problems for debugging
-                    var allProblems = await _problemaRepository.GetAllProblemas();
-                    var problemIds = string.Join(", ", allProblems.Take(10).Select(p => p.Id));
-                    throw new InvalidOperationException(
-                        $"No se puede actualizar el progreso: El problema con ID {problemaId} no existe en la base de datos. " +
-                        $"Problemas disponibles (primeros 10): {problemIds}");
-                }
+        // SEGUNDO TRY
+        try
+        {
+            var progreso = await _progresoProblemaRepository.GetByUserAndProblema(userId, problemaId);
 
-            try
+            if (progreso == null)
             {
-                var progreso = await _progresoProblemaRepository.GetByUserAndProblema(userId, problemaId);
-                
-                if (progreso == null)
+                progreso = new Progreso_Problema
                 {
-                    // Create new progress record
-                    progreso = new Progreso_Problema
-                    {
-                        UserId = userId,
-                        ProblemaId = problemaId,
-                        Completado = isCorrect,
-                        Puntuacion = isCorrect ? puntosOtorgados : 0,
-                        Intentos = 1,
-                        UltimoCodigo = codigo,
-                        FechaCompletado = isCorrect ? DateTime.UtcNow : (DateTime?)null
-                    };
-                    await _progresoProblemaRepository.InsertProgreso_Problemas(progreso);
-                }
-                else
-                {
-                    // Update existing progress
-                    if (isCorrect && !progreso.Completado)
-                    {
-                        progreso.Completado = true;
-                        progreso.Puntuacion = puntosOtorgados;
-                        progreso.FechaCompletado = DateTime.UtcNow;
-                        
-                        // Update user's total points and level
-                        await UpdateUserPoints(userId, puntosOtorgados);
-                    }
-                    progreso.Intentos++;
-                    progreso.UltimoCodigo = codigo;
-                    await _progresoProblemaRepository.UpdateProgreso_Problemas(progreso);
-                }
+                    UserId = userId,
+                    ProblemaId = problemaId,
+                    Completado = isCorrect,
+                    Puntuacion = isCorrect ? puntosOtorgados : 0,
+                    Intentos = 1,
+                    UltimoCodigo = codigo,
+                    FechaCompletado = isCorrect ? DateTime.UtcNow : (DateTime?)null
+                };
+                await _progresoProblemaRepository.InsertProgreso_Problemas(progreso);
             }
-            catch (Exception ex) when (ex.Message.Contains("FOREIGN KEY constraint failed"))
+            else
             {
-                throw new InvalidOperationException(
-                    $"Error de base de datos: No se puede guardar el progreso. " +
-                    $"Verifica que el problema con ID {problemaId} existe en la base de datos.", 
-                    ex);
+                if (isCorrect && !progreso.Completado)
+                {
+                    progreso.Completado = true;
+                    progreso.Puntuacion = puntosOtorgados;
+                    progreso.FechaCompletado = DateTime.UtcNow;
+
+                    await UpdateUserPoints(userId, puntosOtorgados);
+                }
+
+                progreso.Intentos++;
+                progreso.UltimoCodigo = codigo;
+
+                await _progresoProblemaRepository.UpdateProgreso_Problemas(progreso);
             }
         }
+        catch (Exception ex) when (ex.Message.Contains("FOREIGN KEY constraint failed"))
+        {
+            throw new InvalidOperationException(
+                $"Error de base de datos: No se puede guardar el progreso. " +
+                $"Verifica que el problema con ID {problemaId} existe en la base de datos.", 
+                ex);
+        }
+    }
+    catch (Exception ex)
+    {
+        // CATCH QUE FALTABA
+        throw new Exception($"Error en UpdateProgress: {ex.Message}", ex);
+    }
+}
+
 
         private async Task UpdateUserPoints(int userId, int puntos)
         {
