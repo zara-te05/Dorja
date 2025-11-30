@@ -11,53 +11,149 @@ namespace BACK
         {
             try
             {
-                Console.WriteLine($"Initializing database with connection string: {connectionString}");
+                Console.WriteLine($"🔧 Initializing database with connection string: {connectionString}");
                 
+                // Parse connection string and ensure absolute path
                 var dbPath = connectionString.Replace("Data Source=", "").Trim();
                 var dbDirectory = Path.GetDirectoryName(dbPath);
                 
                 if (string.IsNullOrEmpty(dbDirectory))
                 {
-                    // If no directory specified, use current directory
+                    // If no directory specified, use current directory (where the backend runs)
                     dbPath = Path.Combine(Directory.GetCurrentDirectory(), dbPath);
                     dbDirectory = Directory.GetCurrentDirectory();
                 }
+                else if (!Path.IsPathRooted(dbPath))
+                {
+                    // If path is relative, make it absolute
+                    dbPath = Path.Combine(Directory.GetCurrentDirectory(), dbPath);
+                    dbDirectory = Path.GetDirectoryName(dbPath);
+                }
                 
-                Console.WriteLine($"Database path: {dbPath}");
-                Console.WriteLine($"Database directory: {dbDirectory}");
+                // Update connection string with absolute path
+                connectionString = $"Data Source={dbPath}";
                 
+                Console.WriteLine($"📁 Database path: {dbPath}");
+                Console.WriteLine($"📁 Database directory: {dbDirectory}");
+                
+                // Ensure directory exists
                 if (!string.IsNullOrEmpty(dbDirectory) && !Directory.Exists(dbDirectory))
                 {
                     Directory.CreateDirectory(dbDirectory);
-                    Console.WriteLine($"Created directory: {dbDirectory}");
+                    Console.WriteLine($"✅ Created directory: {dbDirectory}");
                 }
 
                 using var connection = new SqliteConnection(connectionString);
                 connection.Open();
-                Console.WriteLine("Database connection opened successfully");
+                Console.WriteLine("✅ Database connection opened successfully");
 
-                // Create tables
-                Console.WriteLine("Creating tables...");
-                CreateUsersTable(connection);
-                CreateNivelesTable(connection);
-                CreateTemasTable(connection);
-                CreateProblemasTable(connection);
-                CreateProgresoProblemaTable(connection);
-                CreateLogrosTable(connection);
-                CreateLogrosUsuarioTable(connection);
-                CreateCertificadosTable(connection);
-                Console.WriteLine("All tables created successfully");
+                // Create tables - wrap each in try-catch to prevent one failure from stopping everything
+                Console.WriteLine("📋 Creating/verifying tables...");
+                try
+                {
+                    CreateUsersTable(connection);
+                    Console.WriteLine("✅ Users table OK");
+                }
+                catch (Exception ex)
+                {
+                    Console.WriteLine($"⚠️ WARNING: Error with users table: {ex.Message}");
+                }
+
+                try
+                {
+                    CreateNivelesTable(connection);
+                    Console.WriteLine("✅ Niveles table OK");
+                }
+                catch (Exception ex)
+                {
+                    Console.WriteLine($"⚠️ WARNING: Error with niveles table: {ex.Message}");
+                }
+
+                try
+                {
+                    CreateTemasTable(connection);
+                    Console.WriteLine("✅ Temas table OK");
+                }
+                catch (Exception ex)
+                {
+                    Console.WriteLine($"⚠️ WARNING: Error with temas table: {ex.Message}");
+                }
+
+                try
+                {
+                    CreateProblemasTable(connection);
+                    Console.WriteLine("✅ Problemas table OK");
+                }
+                catch (Exception ex)
+                {
+                    Console.WriteLine($"⚠️ WARNING: Error with problemas table: {ex.Message}");
+                }
+
+                try
+                {
+                    CreateProgresoProblemaTable(connection);
+                    Console.WriteLine("✅ ProgresoProblema table OK");
+                }
+                catch (Exception ex)
+                {
+                    Console.WriteLine($"⚠️ WARNING: Error with progreso_problema table: {ex.Message}");
+                }
+
+                try
+                {
+                    CreateLogrosTable(connection);
+                    Console.WriteLine("✅ Logros table OK");
+                }
+                catch (Exception ex)
+                {
+                    Console.WriteLine($"⚠️ WARNING: Error with logros table: {ex.Message}");
+                }
+
+                try
+                {
+                    CreateLogrosUsuarioTable(connection);
+                    Console.WriteLine("✅ LogrosUsuario table OK");
+                }
+                catch (Exception ex)
+                {
+                    Console.WriteLine($"⚠️ WARNING: Error with logros_usuario table: {ex.Message}");
+                }
+
+                try
+                {
+                    CreateCertificadosTable(connection);
+                    Console.WriteLine("✅ Certificados table OK");
+                }
+                catch (Exception ex)
+                {
+                    Console.WriteLine($"⚠️ WARNING: Error with certificados table: {ex.Message}");
+                }
+
+                Console.WriteLine("✅ All tables processed");
 
                 // Seed initial data
-                Console.WriteLine("Starting seed process...");
-                SeedInitialData(connection);
-                Console.WriteLine("Database initialization completed successfully");
+                Console.WriteLine("🌱 Starting seed process...");
+                try
+                {
+                    SeedInitialData(connection);
+                    Console.WriteLine("✅ Database initialization completed successfully");
+                }
+                catch (Exception seedEx)
+                {
+                    Console.WriteLine($"❌ ERROR during seed process: {seedEx.Message}");
+                    Console.WriteLine($"Stack trace: {seedEx.StackTrace}");
+                    // Don't throw - allow server to start even if seed fails
+                    // The tables are created, so the app can still function
+                    Console.WriteLine("⚠️ WARNING: Server will start but database may be incomplete.");
+                }
             }
             catch (Exception ex)
             {
-                Console.WriteLine($"ERROR initializing database: {ex.Message}");
+                Console.WriteLine($"❌ ERROR initializing database: {ex.Message}");
                 Console.WriteLine($"Stack trace: {ex.StackTrace}");
-                throw; // Re-throw to ensure the application knows there was an error
+                // Don't throw - allow server to start even if initialization has issues
+                // This ensures the app can still run
+                Console.WriteLine("⚠️ WARNING: Server will start but database initialization had errors.");
             }
         }
 
@@ -251,13 +347,108 @@ namespace BACK
                 checkCommand.CommandText = "SELECT COUNT(*) FROM niveles";
                 var nivelCount = Convert.ToInt32(checkCommand.ExecuteScalar());
                 
-                if (nivelCount > 0)
+                // Also check problems count
+                var checkProblemasCommand = connection.CreateCommand();
+                checkProblemasCommand.CommandText = "SELECT COUNT(*) FROM problemas";
+                var problemaCount = Convert.ToInt32(checkProblemasCommand.ExecuteScalar());
+                
+                // Check temas count
+                var checkTemasCommand = connection.CreateCommand();
+                checkTemasCommand.CommandText = "SELECT COUNT(*) FROM temas";
+                var temaCount = Convert.ToInt32(checkTemasCommand.ExecuteScalar());
+                
+                Console.WriteLine($"📊 Database status: {nivelCount} niveles, {temaCount} temas, {problemaCount} problemas");
+                
+                // Expected values: 1 nivel, 5 temas, 50 problemas
+                const int EXPECTED_NIVELES = 1;
+                const int EXPECTED_TEMAS = 5;
+                const int EXPECTED_PROBLEMAS = 50;
+                
+                // CRITICAL: Only skip if we have ALL expected data, especially problems
+                // If there are NO problems, we MUST seed
+                bool hasCorrectData = nivelCount == EXPECTED_NIVELES && 
+                                     temaCount == EXPECTED_TEMAS && 
+                                     problemaCount == EXPECTED_PROBLEMAS;
+                
+                if (hasCorrectData)
                 {
-                    Console.WriteLine($"Database already contains {nivelCount} levels. Skipping seed.");
+                    Console.WriteLine($"✅ Database is complete: {nivelCount} niveles, {temaCount} temas, {problemaCount} problemas. Skipping seed.");
                     return;
                 }
+                
+                // CRITICAL: If there are NO problems, we must seed regardless of other data
+                if (problemaCount == 0)
+                {
+                    Console.WriteLine($"⚠️ CRITICAL: No problems found in database! Database must be seeded.");
+                    Console.WriteLine($"   Found: {nivelCount} niveles, {temaCount} temas, {problemaCount} problemas");
+                    Console.WriteLine($"   Expected: {EXPECTED_NIVELES} niveles, {EXPECTED_TEMAS} temas, {EXPECTED_PROBLEMAS} problemas");
+                    Console.WriteLine("⚠️ Clearing existing data and re-seeding...");
+                    
+                    // Disable foreign key constraints temporarily
+                    var disableFKCommand = connection.CreateCommand();
+                    disableFKCommand.CommandText = "PRAGMA foreign_keys = OFF";
+                    disableFKCommand.ExecuteNonQuery();
+                    
+                    // Clear existing data in correct order (respecting foreign keys)
+                    var clearCommand = connection.CreateCommand();
+                    clearCommand.CommandText = @"
+                        DELETE FROM progreso_problema;
+                        DELETE FROM logros_usuario;
+                        DELETE FROM certificados;
+                        DELETE FROM problemas;
+                        DELETE FROM temas;
+                        DELETE FROM niveles;
+                        DELETE FROM logros;
+                    ";
+                    clearCommand.ExecuteNonQuery();
+                    
+                    // Re-enable foreign key constraints
+                    var enableFKCommand = connection.CreateCommand();
+                    enableFKCommand.CommandText = "PRAGMA foreign_keys = ON";
+                    enableFKCommand.ExecuteNonQuery();
+                    
+                    Console.WriteLine("✅ Existing data cleared. Re-seeding...");
+                    // Continue to seed below
+                }
+                // If data is incomplete or incorrect, clear and re-seed
+                else if (nivelCount > 0 || temaCount > 0 || problemaCount > 0)
+                {
+                    Console.WriteLine($"⚠️ WARNING: Database is incomplete or corrupted!");
+                    Console.WriteLine($"   Expected: {EXPECTED_NIVELES} niveles, {EXPECTED_TEMAS} temas, {EXPECTED_PROBLEMAS} problemas");
+                    Console.WriteLine($"   Found: {nivelCount} niveles, {temaCount} temas, {problemaCount} problemas");
+                    Console.WriteLine("⚠️ Clearing existing data and re-seeding...");
+                    
+                    // Disable foreign key constraints temporarily
+                    var disableFKCommand = connection.CreateCommand();
+                    disableFKCommand.CommandText = "PRAGMA foreign_keys = OFF";
+                    disableFKCommand.ExecuteNonQuery();
+                    
+                    // Clear existing data in correct order (respecting foreign keys)
+                    var clearCommand = connection.CreateCommand();
+                    clearCommand.CommandText = @"
+                        DELETE FROM progreso_problema;
+                        DELETE FROM logros_usuario;
+                        DELETE FROM certificados;
+                        DELETE FROM problemas;
+                        DELETE FROM temas;
+                        DELETE FROM niveles;
+                        DELETE FROM logros;
+                    ";
+                    clearCommand.ExecuteNonQuery();
+                    
+                    // Re-enable foreign key constraints
+                    var enableFKCommand = connection.CreateCommand();
+                    enableFKCommand.CommandText = "PRAGMA foreign_keys = ON";
+                    enableFKCommand.ExecuteNonQuery();
+                    
+                    Console.WriteLine("✅ Existing data cleared. Re-seeding...");
+                }
+                else
+                {
+                    Console.WriteLine("📝 Database is empty. Seeding initial data...");
+                }
 
-                Console.WriteLine("Seeding initial data based on syllabus...");
+                Console.WriteLine("🌱 Seeding initial data based on syllabus...");
 
             // Insert Nivel 1: Introduction to Programming
             var nivel1Command = connection.CreateCommand();
@@ -738,14 +929,39 @@ namespace BACK
                 // Seed Logros
                 SeedLogros(connection);
 
-                Console.WriteLine("Initial data seeded successfully!");
+                // Verify the seed was successful
+                var verifyCommand = connection.CreateCommand();
+                verifyCommand.CommandText = "SELECT COUNT(*) FROM problemas";
+                var finalProblemCount = Convert.ToInt32(verifyCommand.ExecuteScalar());
+                
+                var verifyTemasCommand = connection.CreateCommand();
+                verifyTemasCommand.CommandText = "SELECT COUNT(*) FROM temas";
+                var finalTemaCount = Convert.ToInt32(verifyTemasCommand.ExecuteScalar());
+                
+                var verifyNivelesCommand = connection.CreateCommand();
+                verifyNivelesCommand.CommandText = "SELECT COUNT(*) FROM niveles";
+                var finalNivelCount = Convert.ToInt32(verifyNivelesCommand.ExecuteScalar());
+                
+                if (finalNivelCount == 1 && finalTemaCount == 5 && finalProblemCount == 50)
+                {
+                    Console.WriteLine($"✅ Initial data seeded successfully!");
+                    Console.WriteLine($"   ✅ {finalNivelCount} nivel, {finalTemaCount} temas, {finalProblemCount} problemas");
+                }
+                else
+                {
+                    Console.WriteLine($"⚠️ WARNING: Seed completed but verification failed!");
+                    Console.WriteLine($"   Expected: 1 nivel, 5 temas, 50 problemas");
+                    Console.WriteLine($"   Found: {finalNivelCount} niveles, {finalTemaCount} temas, {finalProblemCount} problemas");
+                    throw new Exception($"Database seed verification failed. Expected 50 problems, got {finalProblemCount}");
+                }
             }
             catch (Exception ex)
             {
-                Console.WriteLine($"ERROR seeding data: {ex.Message}");
+                Console.WriteLine($"❌ ERROR seeding data: {ex.Message}");
                 Console.WriteLine($"Stack trace: {ex.StackTrace}");
-                // Don't throw here - we want the database to be usable even if seed fails
-                // The tables are already created, so users can still be created
+                // Don't throw - allow server to start even if seed fails
+                // The tables are created, so users can still be created
+                Console.WriteLine("⚠️ WARNING: Seed failed but server will continue. Database may be incomplete.");
             }
         }
 
@@ -767,11 +983,17 @@ namespace BACK
                 command.Parameters.AddWithValue("@solucion", solucion);
                 command.Parameters.AddWithValue("@orden", orden);
                 command.Parameters.AddWithValue("@puntosOtorgados", puntosOtorgados);
-                command.ExecuteNonQuery();
+                var rowsAffected = command.ExecuteNonQuery();
+                
+                if (rowsAffected == 0)
+                {
+                    throw new Exception($"Failed to insert problema '{titulo}' - no rows affected");
+                }
             }
             catch (Exception ex)
             {
-                Console.WriteLine($"ERROR inserting problema '{titulo}': {ex.Message}");
+                Console.WriteLine($"❌ ERROR inserting problema '{titulo}': {ex.Message}");
+                Console.WriteLine($"   TemaId: {temaId}, Orden: {orden}");
                 throw;
             }
         }

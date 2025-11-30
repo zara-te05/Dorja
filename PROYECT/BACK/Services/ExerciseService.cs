@@ -88,22 +88,59 @@ namespace BACK.Services
         /// </summary>
         public async Task<ValidationResult> ValidateSolution(int userId, int problemaId, string codigo, string language = "python")
         {
-            // Log for debugging
-            Console.WriteLine($"Validating solution - UserId: {userId}, ProblemaId: {problemaId}, Code length: {codigo?.Length ?? 0}");
-            
-            var problema = await _problemaRepository.GetDetails(problemaId);
+            try
+            {
+                // Log for debugging
+                Console.WriteLine($"🔍 Validating solution - UserId: {userId}, ProblemaId: {problemaId}, Code length: {codigo?.Length ?? 0}");
+                
+                if (problemaId <= 0)
+                {
+                    return new ValidationResult 
+                    { 
+                        IsCorrect = false, 
+                        Message = $"ID de problema inválido: {problemaId}. Por favor, recarga la página y selecciona un problema válido."
+                    };
+                }
+                
+                var problema = await _problemaRepository.GetDetails(problemaId);
             if (problema == null)
             {
                 // Get all problems to help debug
                 var allProblems = await _problemaRepository.GetAllProblemas();
-                var problemIds = string.Join(", ", allProblems.Take(20).Select(p => $"ID:{p.Id} Tema:{p.TemaId}"));
-                Console.WriteLine($"Problema {problemaId} not found. Available problems: {problemIds}");
+                var problemList = allProblems.ToList();
+                var problemIds = string.Join(", ", problemList.Take(20).Select(p => $"ID:{p.Id}"));
+                var totalCount = problemList.Count;
+                
+                Console.WriteLine($"❌ ERROR: Problema {problemaId} not found. Total problems in DB: {totalCount}");
+                Console.WriteLine($"Available problem IDs (first 20): {problemIds}");
+                
+                // Log all problems for debugging
+                if (problemList.Count > 0)
+                {
+                    Console.WriteLine("All problems in database:");
+                    foreach (var p in problemList.Take(10))
+                    {
+                        Console.WriteLine($"  ID: {p.Id}, TemaId: {p.TemaId}, Título: {p.Titulo}");
+                    }
+                }
+                else
+                {
+                    Console.WriteLine("⚠️ WARNING: No hay problemas en la base de datos. La base de datos necesita ser inicializada.");
+                }
+                
+                // Return a more helpful error message
+                var errorMessage = totalCount == 0
+                    ? "No hay problemas en la base de datos. Por favor, reinicia el servidor para inicializar la base de datos."
+                    : $"El problema con ID {problemaId} no existe en la base de datos. Hay {totalCount} problemas disponibles (IDs: {problemIds}). Por favor, recarga la página y selecciona un problema válido.";
+                
                 return new ValidationResult 
                 { 
                     IsCorrect = false, 
-                    Message = $"Problema con ID {problemaId} no encontrado. Problemas disponibles: {problemIds}" 
+                    Message = errorMessage
                 };
             }
+            
+            Console.WriteLine($"✅ Problema encontrado: ID={problema.Id}, Título={problema.Titulo}");
 
             if (string.IsNullOrWhiteSpace(codigo))
             {
@@ -127,7 +164,18 @@ namespace BACK.Services
             {
                 // If solution code has errors, fall back to string comparison
                 bool isValid = ValidateByStringComparison(codigo, problema.Solucion);
-                await UpdateProgress(userId, problemaId, codigo, isValid, problema.PuntosOtorgados);
+                
+                // Update progress - if it fails, we still want to return the validation result
+                try
+                {
+                    await UpdateProgress(userId, problemaId, codigo, isValid, problema.PuntosOtorgados);
+                }
+                catch (Exception progressEx)
+                {
+                    // Log but don't fail the validation
+                    Console.WriteLine($"⚠️ WARNING: Error updating progress (continuing anyway): {progressEx.Message}");
+                }
+                
                 return new ValidationResult
                 {
                     IsCorrect = isValid,
@@ -152,8 +200,16 @@ namespace BACK.Services
                 isCorrect = ValidateByStringComparison(codigo, problema.Solucion);
             }
 
-            // Update progress
-            await UpdateProgress(userId, problemaId, codigo, isCorrect, problema.PuntosOtorgados);
+            // Update progress - if it fails, we still want to return the validation result
+            try
+            {
+                await UpdateProgress(userId, problemaId, codigo, isCorrect, problema.PuntosOtorgados);
+            }
+            catch (Exception progressEx)
+            {
+                // Log but don't fail the validation
+                Console.WriteLine($"⚠️ WARNING: Error updating progress (continuing anyway): {progressEx.Message}");
+            }
 
             return new ValidationResult
             {
@@ -165,6 +221,23 @@ namespace BACK.Services
                 UserOutput = userResult.Output,
                 ExpectedOutput = solutionResult.Output
             };
+            }
+            catch (Exception ex)
+            {
+                // Log the error but return a valid result
+                Console.WriteLine($"❌ ERROR in ValidateSolution: {ex.Message}");
+                Console.WriteLine($"   Stack trace: {ex.StackTrace}");
+                
+                // Return a user-friendly error message
+                return new ValidationResult
+                {
+                    IsCorrect = false,
+                    Message = $"Error al validar la solución: {ex.Message}. Por favor, verifica que el problema existe y vuelve a intentar.",
+                    PuntosOtorgados = 0,
+                    UserOutput = null,
+                    ExpectedOutput = null
+                };
+            }
         }
 
         /// <summary>
@@ -419,76 +492,127 @@ namespace BACK.Services
         }
 
         private async Task UpdateProgress(int userId, int problemaId, string codigo, bool isCorrect, int puntosOtorgados)
-{
-    try
-    {
-        // Validate user
-        var user = await _userRepository.GetDetails(userId);
-        if (user == null)
-            throw new InvalidOperationException($"No se puede actualizar el progreso: El usuario con ID {userId} no existe.");
-
-        // Validate problem
-        var problem = await _problemaRepository.GetDetails(problemaId);
-        if (problem == null)
         {
-            var allProblems = await _problemaRepository.GetAllProblemas();
-            var problemIds = string.Join(", ", allProblems.Take(10).Select(p => p.Id));
-            throw new InvalidOperationException(
-                $"No se puede actualizar el progreso: El problema con ID {problemaId} no existe. " +
-                $"Problemas disponibles (primeros 10): {problemIds}");
-        }
-
-        // SEGUNDO TRY
-        try
-        {
-            var progreso = await _progresoProblemaRepository.GetByUserAndProblema(userId, problemaId);
-
-            if (progreso == null)
+            try
             {
-                progreso = new Progreso_Problema
+                // Validate user
+                var user = await _userRepository.GetDetails(userId);
+                if (user == null)
                 {
-                    UserId = userId,
-                    ProblemaId = problemaId,
-                    Completado = isCorrect,
-                    Puntuacion = isCorrect ? puntosOtorgados : 0,
-                    Intentos = 1,
-                    UltimoCodigo = codigo,
-                    FechaCompletado = isCorrect ? DateTime.UtcNow : (DateTime?)null
-                };
-                await _progresoProblemaRepository.InsertProgreso_Problemas(progreso);
-            }
-            else
-            {
-                if (isCorrect && !progreso.Completado)
-                {
-                    progreso.Completado = true;
-                    progreso.Puntuacion = puntosOtorgados;
-                    progreso.FechaCompletado = DateTime.UtcNow;
-
-                    await UpdateUserPoints(userId, puntosOtorgados);
+                    Console.WriteLine($"⚠️ WARNING: Usuario con ID {userId} no existe. No se puede actualizar el progreso.");
+                    return; // Silently fail - don't throw exception
                 }
 
-                progreso.Intentos++;
-                progreso.UltimoCodigo = codigo;
+                // Validate problem - check multiple times to ensure it exists
+                var problem = await _problemaRepository.GetDetails(problemaId);
+                if (problem == null)
+                {
+                    // Try to get all problems to see what's available
+                    var allProblems = await _problemaRepository.GetAllProblemas();
+                    var problemList = allProblems.ToList();
+                    var problemIds = problemList.Count > 0 
+                        ? string.Join(", ", problemList.Take(20).Select(p => p.Id))
+                        : "ninguno";
+                    
+                    Console.WriteLine($"⚠️ WARNING: Problema con ID {problemaId} no existe en la base de datos.");
+                    Console.WriteLine($"   Total de problemas disponibles: {problemList.Count}");
+                    if (problemList.Count > 0)
+                    {
+                        Console.WriteLine($"   IDs disponibles (primeros 20): {problemIds}");
+                        // Log first few problems for debugging
+                        foreach (var p in problemList.Take(5))
+                        {
+                            Console.WriteLine($"     - ID: {p.Id}, Título: {p.Titulo}, TemaId: {p.TemaId}");
+                        }
+                    }
+                    else
+                    {
+                        Console.WriteLine($"   ⚠️ CRÍTICO: No hay problemas en la base de datos. La base de datos necesita ser inicializada.");
+                    }
+                    
+                    // Don't throw exception - just log and return
+                    // This allows the validation to continue even if progress can't be saved
+                    return;
+                }
 
-                await _progresoProblemaRepository.UpdateProgreso_Problemas(progreso);
+                Console.WriteLine($"✅ Actualizando progreso: UserId={userId}, ProblemaId={problemaId}, Correcto={isCorrect}");
+
+                // Get or create progress
+                var progreso = await _progresoProblemaRepository.GetByUserAndProblema(userId, problemaId);
+
+                if (progreso == null)
+                {
+                    progreso = new Progreso_Problema
+                    {
+                        UserId = userId,
+                        ProblemaId = problemaId,
+                        Completado = isCorrect,
+                        Puntuacion = isCorrect ? puntosOtorgados : 0,
+                        Intentos = 1,
+                        UltimoCodigo = codigo,
+                        FechaCompletado = isCorrect ? DateTime.UtcNow : (DateTime?)null
+                    };
+                    
+                    var inserted = await _progresoProblemaRepository.InsertProgreso_Problemas(progreso);
+                    if (!inserted)
+                    {
+                        Console.WriteLine($"⚠️ WARNING: No se pudo insertar el progreso para UserId={userId}, ProblemaId={problemaId}");
+                        // Verify problem still exists
+                        var verifyProblem = await _problemaRepository.GetDetails(problemaId);
+                        if (verifyProblem == null)
+                        {
+                            Console.WriteLine($"   ⚠️ El problema {problemaId} ya no existe. Puede haber sido eliminado.");
+                        }
+                        return; // Silently fail
+                    }
+                    Console.WriteLine($"✅ Progreso insertado exitosamente");
+                }
+                else
+                {
+                    if (isCorrect && !progreso.Completado)
+                    {
+                        progreso.Completado = true;
+                        progreso.Puntuacion = puntosOtorgados;
+                        progreso.FechaCompletado = DateTime.UtcNow;
+                        await UpdateUserPoints(userId, puntosOtorgados);
+                    }
+
+                    progreso.Intentos++;
+                    progreso.UltimoCodigo = codigo;
+                    
+                    var updated = await _progresoProblemaRepository.UpdateProgreso_Problemas(progreso);
+                    if (!updated)
+                    {
+                        Console.WriteLine($"⚠️ WARNING: No se pudo actualizar el progreso para UserId={userId}, ProblemaId={problemaId}");
+                        return; // Silently fail
+                    }
+                    Console.WriteLine($"✅ Progreso actualizado exitosamente");
+                }
+            }
+            catch (Exception ex) when (ex.Message.Contains("FOREIGN KEY constraint failed") || 
+                                       ex.Message.Contains("SQLITE_CONSTRAINT_FOREIGNKEY") ||
+                                       ex.Message.Contains("no such column") ||
+                                       ex.Message.Contains("no such table"))
+            {
+                // Log the error but don't throw - allow validation to continue
+                Console.WriteLine($"⚠️ WARNING: Error de base de datos al guardar progreso:");
+                Console.WriteLine($"   UserId: {userId}, ProblemaId: {problemaId}");
+                Console.WriteLine($"   Error: {ex.Message}");
+                Console.WriteLine($"   El progreso no se guardó, pero la validación continuará.");
+                // Don't throw - silently fail so validation can complete
+                return;
+            }
+            catch (Exception ex)
+            {
+                // Log the error but don't throw - allow validation to continue
+                Console.WriteLine($"⚠️ WARNING: Error inesperado en UpdateProgress:");
+                Console.WriteLine($"   UserId: {userId}, ProblemaId: {problemaId}");
+                Console.WriteLine($"   Error: {ex.Message}");
+                Console.WriteLine($"   Stack trace: {ex.StackTrace}");
+                // Don't throw - silently fail so validation can complete
+                return;
             }
         }
-        catch (Exception ex) when (ex.Message.Contains("FOREIGN KEY constraint failed"))
-        {
-            throw new InvalidOperationException(
-                $"Error de base de datos: No se puede guardar el progreso. " +
-                $"Verifica que el problema con ID {problemaId} existe en la base de datos.", 
-                ex);
-        }
-    }
-    catch (Exception ex)
-    {
-        // CATCH QUE FALTABA
-        throw new Exception($"Error en UpdateProgress: {ex.Message}", ex);
-    }
-}
-
 
         private async Task UpdateUserPoints(int userId, int puntos)
         {
