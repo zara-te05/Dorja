@@ -39,12 +39,14 @@ window.api = {
             }
 
             // Handle different response types
+            // If result is directly an array, return it as data but also keep it accessible
             if (Array.isArray(result)) {
-                return { success: true, data: result };
+                return { success: true, data: result, result: result };
             } else if (result && typeof result === 'object') {
-                return { success: true, data: result, ...result };
+                // If result is an object, spread it and also put it in data if not already there
+                return { success: true, data: result.data || result, ...result };
             } else {
-                return { success: true, data: result };
+                return { success: true, data: result, result: result };
             }
         } catch (error) {
             console.error(`Error en API ${endpoint}:`, error);
@@ -301,10 +303,80 @@ window.api = {
         return temas;
     },
 
-    cargarProblemas: async (userId, temaId) => {
+    cargarProblemas: async (userId, temaId, useRandom = true, count = 10) => {
         try {
-            console.log('🔄 API: Cargando problemas para temaId:', temaId);
-            // Get all problems and filter by temaId, or use a specific endpoint if available
+            // Validate temaId
+            if (!temaId || temaId === 'undefined' || temaId === undefined) {
+                console.error('❌ API: temaId inválido:', temaId);
+                throw new Error('temaId inválido');
+            }
+            
+            const numTemaId = parseInt(temaId);
+            if (isNaN(numTemaId) || numTemaId <= 0) {
+                console.error('❌ API: temaId no es un número válido:', temaId);
+                throw new Error('temaId no es un número válido');
+            }
+            
+            console.log('🔄 API: Cargando problemas para temaId:', numTemaId, useRandom ? '(aleatorios)' : '(todos)');
+            
+            // Use random endpoint if available and useRandom is true
+            if (useRandom && numTemaId) {
+                try {
+                    const randomUrl = `/Problemas/tema/${numTemaId}/random?count=${count}${userId ? `&userId=${userId}` : ''}`;
+                    const result = await window.api._makeRequest(randomUrl);
+                    console.log('📦 API: Resultado problemas aleatorios:', result);
+                    
+                    let problems = [];
+                    // Handle the wrapped response from _makeRequest - check multiple formats
+                    console.log('🔍 API: Formato del resultado recibido:', typeof result, 'Es array?:', Array.isArray(result), 'Tiene data?:', result?.data ? 'Sí' : 'No');
+                    
+                    if (Array.isArray(result)) {
+                        // Direct array response
+                        problems = result;
+                        console.log('✅ API: Resultado es un array directo:', problems.length);
+                    } else if (result && Array.isArray(result.data)) {
+                        // Wrapped in data property
+                        problems = result.data;
+                        console.log('✅ API: Resultado en propiedad data:', problems.length);
+                    } else if (result && result.success && Array.isArray(result.data)) {
+                        // Wrapped in success.data
+                        problems = result.data;
+                        console.log('✅ API: Resultado en success.data:', problems.length);
+                    } else if (result && typeof result === 'object') {
+                        // Try to find any array property
+                        for (const key in result) {
+                            if (Array.isArray(result[key])) {
+                                problems = result[key];
+                                console.log(`✅ API: Resultado encontrado en propiedad ${key}:`, problems.length);
+                                break;
+                            }
+                        }
+                    }
+                    
+                    console.log('📦 API: Problemas extraídos del resultado:', problems.length, 'problemas');
+                    if (problems.length === 0) {
+                        console.warn('⚠️ API: Estructura del resultado completo:', JSON.stringify(result).substring(0, 500));
+                    }
+                    
+                    // If we got problems (even if less than requested), return them
+                    if (problems.length > 0) {
+                        console.log(`✅ API: Problemas aleatorios obtenidos: ${problems.length} de ${count} solicitados`);
+                        // If we got fewer than requested, log a warning but return what we have
+                        if (problems.length < count) {
+                            console.warn(`⚠️ API: Se recibieron menos problemas de los solicitados (${problems.length} < ${count})`);
+                        }
+                        return problems;
+                    } else {
+                        console.warn('⚠️ API: No se pudieron extraer problemas del resultado:', result);
+                        // Fallback to regular endpoint if random returns empty
+                        console.warn('⚠️ API: No se obtuvieron problemas aleatorios, usando endpoint regular');
+                    }
+                } catch (randomError) {
+                    console.warn('⚠️ API: Error obteniendo problemas aleatorios, usando endpoint regular:', randomError);
+                }
+            }
+            
+            // Fallback: Get all problems and filter by temaId
             const result = await window.api._makeRequest('/Problemas');
             console.log('📦 API: Resultado crudo:', result);
             
@@ -325,12 +397,12 @@ window.api = {
             console.log('📝 API: Problemas extraídos:', problems.length);
             
             // Filter by temaId if the backend doesn't have a specific endpoint
-            if (problems.length > 0 && temaId) {
+            if (problems.length > 0 && numTemaId) {
                 const filtered = problems.filter(p => {
                     const pTemaId = p.temaId || p.tema_id || p.TemaId;
-                    return pTemaId === temaId || pTemaId === parseInt(temaId);
+                    return pTemaId === numTemaId || pTemaId === parseInt(numTemaId);
                 });
-                console.log('✅ API: Problemas filtrados para temaId', temaId, ':', filtered.length);
+                console.log('✅ API: Problemas filtrados para temaId', numTemaId, ':', filtered.length);
                 return filtered;
             }
             
@@ -343,21 +415,73 @@ window.api = {
     },
 
     obtenerProblema: async (problemaId) => {
-        const result = await window.api._makeRequest(`/Problemas/${problemaId}`);
-        // Handle different response formats
-        if (result && typeof result === 'object' && !result.success) {
-            return result;
+        try {
+            console.log('🔄 API: Obteniendo problema con ID:', problemaId);
+            const result = await window.api._makeRequest(`/Problemas/${problemaId}`);
+            console.log('📦 API: Resultado crudo del problema:', result);
+            
+            // Handle different response formats
+            let problema = null;
+            if (result && typeof result === 'object') {
+                if (result.data) {
+                    problema = result.data;
+                } else if (result.success !== false) {
+                    problema = result;
+                }
+            }
+            
+            if (!problema) {
+                console.error('❌ API: Problema no encontrado o formato inválido');
+                return null;
+            }
+            
+            // Validate that the problem has a valid ID
+            const problemaIdFromResponse = problema.Id || problema.id;
+            if (!problemaIdFromResponse || problemaIdFromResponse !== problemaId) {
+                console.warn(`⚠ API: ID mismatch - requested ${problemaId}, got ${problemaIdFromResponse}`);
+            }
+            
+            console.log('✅ API: Problema obtenido correctamente. ID:', problemaIdFromResponse);
+            return problema;
+        } catch (error) {
+            console.error('❌ API: Error obteniendo problema:', error);
+            return null;
         }
-        return result.data || result || null;
     },
 
-    verificarSolucion: async (userId, codigo, problemaId) => {
-        // This would need a backend endpoint for solution verification
-        // For now, return a placeholder
-        return {
-            correcto: false,
-            mensaje: 'Verificación de solución requiere implementación en el backend'
-        };
+    verificarSolucion: async (userId, problemaId, codigo, language = 'python') => {
+        try {
+            console.log('🔄 API: Verificando solución para userId:', userId, 'problemaId:', problemaId);
+            const result = await window.api._makeRequest('/Exercise/validate', {
+                method: 'POST',
+                body: {
+                    UserId: userId,
+                    ProblemaId: problemaId,
+                    Codigo: codigo,
+                    Language: language
+                }
+            });
+            
+            console.log('✅ API: Resultado de validación recibido:', result);
+            
+            // Extract the actual data from the wrapped response
+            let validationResult;
+            if (result && result.data) {
+                validationResult = result.data;
+            } else if (result && typeof result === 'object') {
+                validationResult = result;
+            } else {
+                validationResult = { correcto: false, mensaje: 'Error desconocido en la respuesta' };
+            }
+            
+            return validationResult;
+        } catch (error) {
+            console.error('❌ API: Error verificando solución:', error);
+            return {
+                correcto: false,
+                mensaje: error.message || 'Error al verificar la solución'
+            };
+        }
     },
 
     marcarProblemaCompletado: async (userId, problemaId, codigo) => {
@@ -425,6 +549,11 @@ window.api = {
                 Language: language
             }
         });
+        return result.data || result;
+    },
+    
+    getProblemCount: async () => {
+        const result = await window.api._makeRequest('/Problemas/count');
         return result.data || result;
     }
 };

@@ -42,7 +42,9 @@ class ProblemsRenderer {
 
     async loadUserProgress() {
         try {
+            console.log(`🔄 Cargando progreso para usuario ${this.userId}...`);
             const progreso = await window.api.getProgresoByUserId(this.userId);
+            console.log('📊 Progreso recibido del API:', progreso);
             
             // Handle different response formats
             let progresoArray = [];
@@ -52,43 +54,93 @@ class ProblemsRenderer {
                 progresoArray = progreso.data;
             } else if (progreso && progreso.success && Array.isArray(progreso.data)) {
                 progresoArray = progreso.data;
+            } else if (progreso && typeof progreso === 'object' && progreso.result && Array.isArray(progreso.result)) {
+                progresoArray = progreso.result;
             }
             
+            console.log(`📊 Progreso procesado: ${progresoArray.length} registros encontrados`);
+            
             if (progresoArray.length === 0) {
-                this.progresoPorTema = {};
                 console.log('📊 No hay progreso registrado para el usuario');
+                // Don't reset progresoPorTema completely, keep existing local state
+                if (!this.progresoPorTema || Object.keys(this.progresoPorTema).length === 0) {
+                    this.progresoPorTema = {};
+                }
                 return;
             }
 
             // Get all problems to map problemaId to temaId
+            // IMPORTANT: Use useRandom=false to get ALL problems, not just random ones
             let allProblemas = [];
             try {
                 // Get problems from all topics in current level
                 const temas = await window.curriculumManager.cargarTemas(this.currentNivelId);
                 for (const tema of temas) {
-                    const temaId = tema.id || tema.IdTemas || tema.Id;
+                    const temaId = tema.id || tema.IdTemas || tema.Id || tema.idTemas;
+                    
+                    // Validate temaId before using it
+                    if (!temaId || temaId === 'undefined' || temaId === undefined) {
+                        console.warn(`⚠️ Saltando tema con ID inválido:`, tema);
+                        continue;
+                    }
+                    
+                    const numTemaId = parseInt(temaId);
+                    if (isNaN(numTemaId) || numTemaId <= 0) {
+                        console.warn(`⚠️ Saltando tema con ID no numérico:`, temaId);
+                        continue;
+                    }
+                    
                     try {
-                        const problemas = await window.curriculumManager.cargarProblemas(temaId);
+                        // Use useRandom=false to get ALL problems for mapping, not just random ones
+                        const problemas = await window.curriculumManager.cargarProblemas(numTemaId, false);
                         if (Array.isArray(problemas)) {
                             allProblemas = allProblemas.concat(problemas);
+                            console.log(`📚 Cargados ${problemas.length} problemas del tema ${numTemaId} para mapeo`);
                         }
                     } catch (err) {
-                        console.warn(`Error cargando problemas del tema ${temaId}:`, err);
+                        console.warn(`Error cargando problemas del tema ${numTemaId}:`, err);
+                        // Fallback: try to get from API directly without random
+                        try {
+                            const result = await window.api._makeRequest('/Problemas');
+                            let problemsFromAPI = [];
+                            if (Array.isArray(result)) {
+                                problemsFromAPI = result;
+                            } else if (result && Array.isArray(result.data)) {
+                                problemsFromAPI = result.data;
+                            }
+                            const filtered = problemsFromAPI.filter(p => {
+                                const pTemaId = p.temaId || p.tema_id || p.TemaId;
+                                return pTemaId === numTemaId || pTemaId === parseInt(numTemaId);
+                            });
+                            if (filtered.length > 0) {
+                                allProblemas = allProblemas.concat(filtered);
+                                console.log(`📚 Cargados ${filtered.length} problemas del tema ${numTemaId} vía fallback`);
+                            }
+                        } catch (apiErr) {
+                            console.warn('Error en fallback API:', apiErr);
+                        }
                     }
                 }
             } catch (err) {
                 console.warn('Error cargando problemas por tema:', err);
             }
 
-            // Create a map of problemaId to temaId
+            // Create a map of problemaId to temaId - normalize IDs to ensure consistency
             const problemaToTema = {};
             for (const problema of allProblemas) {
-                const problemaId = problema.id || problema.Id;
+                const problemaId = problema.id || problema.Id || problema.IdProblema;
                 const temaId = problema.temaId || problema.TemaId || problema.tema_id;
                 if (problemaId && temaId) {
-                    problemaToTema[problemaId] = temaId;
+                    // Normalize to numbers for consistency
+                    const numProblemaId = parseInt(problemaId);
+                    const numTemaId = parseInt(temaId);
+                    if (!isNaN(numProblemaId) && !isNaN(numTemaId) && numProblemaId > 0 && numTemaId > 0) {
+                        problemaToTema[numProblemaId] = numTemaId;
+                        problemaToTema[problemaId] = numTemaId; // Also store as string key for flexibility
+                    }
                 }
             }
+            console.log(`🗺️ Mapa problema→tema creado con ${Object.keys(problemaToTema).length} entradas`);
 
             // Group progress by tema (topic)
             this.progresoPorTema = {};
@@ -117,15 +169,31 @@ class ProblemsRenderer {
                     }
                     
                     if (temaId) {
-                        if (!this.progresoPorTema[temaId]) {
-                            this.progresoPorTema[temaId] = [];
+                        // Ensure temaId is consistent (always use number)
+                        const numTemaId = parseInt(temaId);
+                        if (!isNaN(numTemaId) && numTemaId > 0) {
+                            if (!this.progresoPorTema[numTemaId]) {
+                                this.progresoPorTema[numTemaId] = [];
+                            }
+                            // Only add if not already present (avoid duplicates)
+                            if (!this.progresoPorTema[numTemaId].includes(problemaId)) {
+                                this.progresoPorTema[numTemaId].push(problemaId);
+                                console.log(`✅ Progreso mapeado: problema ${problemaId} → tema ${numTemaId}`);
+                            }
+                        } else {
+                            console.warn(`⚠️ temaId inválido para problema ${problemaId}:`, temaId);
                         }
-                        this.progresoPorTema[temaId].push(problemaId);
+                    } else {
+                        console.warn(`⚠️ No se pudo determinar temaId para problema completado ${problemaId}`);
                     }
                 }
             }
             
-            console.log('📊 Progreso por tema:', this.progresoPorTema);
+            // Log final progress by topic
+            console.log('📊 Progreso por tema final:', this.progresoPorTema);
+            for (const [temaId, problemas] of Object.entries(this.progresoPorTema)) {
+                console.log(`   Tema ${temaId}: ${problemas.length} problemas completados`);
+            }
         } catch (error) {
             console.error('❌ Error cargando progreso:', error);
             this.progresoPorTema = {};
@@ -158,13 +226,20 @@ class ProblemsRenderer {
                     const temaId = tema.id || tema.IdTemas || tema.Id || tema.idTemas;
                     console.log('🔍 Extrayendo temaId del tema:', tema, '→ temaId:', temaId);
                     
-                    if (!temaId) {
-                        console.error('❌ No se pudo extraer temaId del tema:', tema);
+                    if (!temaId || temaId === 'undefined' || temaId === undefined) {
+                        console.error('❌ No se pudo extraer temaId válido del tema:', tema);
                         return { ...tema, total_problemas: 0 };
                     }
                     
                     try {
-                        const problemas = await window.curriculumManager.cargarProblemas(temaId);
+                        // Ensure temaId is a number
+                        const numTemaId = parseInt(temaId);
+                        if (isNaN(numTemaId) || numTemaId <= 0) {
+                            console.error('❌ temaId no es un número válido:', temaId);
+                            return { ...tema, total_problemas: 0 };
+                        }
+                        
+                        const problemas = await window.curriculumManager.cargarProblemas(numTemaId);
                         return { ...tema, total_problemas: Array.isArray(problemas) ? problemas.length : 0 };
                     } catch (error) {
                         console.warn(`Error cargando problemas para tema ${temaId}:`, error);
@@ -277,6 +352,7 @@ class ProblemsRenderer {
             const firstTemaId = firstTema.id || firstTema.IdTemas || firstTema.Id || firstTema.idTemas;
             if (firstTemaId) {
                 unlocked[firstTemaId] = true;
+                console.log(`✅ Tema inicial desbloqueado: ${firstTemaId} - ${firstTema.titulo || firstTema.Titulo}`);
             }
         }
         
@@ -284,33 +360,56 @@ class ProblemsRenderer {
         for (let i = 1; i < this.temas.length; i++) {
             const prevTema = this.temas[i - 1];
             const prevTemaId = prevTema.id || prevTema.IdTemas || prevTema.Id || prevTema.idTemas;
-            if (!prevTemaId) continue;
+            if (!prevTemaId) {
+                console.warn(`⚠ No se pudo obtener ID del tema anterior en índice ${i - 1}`);
+                continue;
+            }
             
             const prevCompletados = (this.progresoPorTema[prevTemaId] || []).length;
+            const prevTitulo = prevTema.titulo || prevTema.Titulo || 'Tema anterior';
+            
+            console.log(`📊 Tema anterior "${prevTitulo}" (ID: ${prevTemaId}): ${prevCompletados}/10 problemas completados`);
             
             if (prevCompletados >= 10) {
                 const currentTema = this.temas[i];
                 const currentTemaId = currentTema.id || currentTema.IdTemas || currentTema.Id || currentTema.idTemas;
                 if (currentTemaId) {
                     unlocked[currentTemaId] = true;
+                    const currentTitulo = currentTema.titulo || currentTema.Titulo || 'Tema actual';
+                    console.log(`✅ Tema desbloqueado: ${currentTemaId} - ${currentTitulo} (${prevCompletados} problemas completados en tema anterior)`);
                 }
             } else {
+                const currentTema = this.temas[i];
+                const currentTitulo = currentTema.titulo || currentTema.Titulo || 'Tema siguiente';
+                console.log(`🔒 Tema bloqueado: ${currentTitulo} (requiere ${10 - prevCompletados} problemas más del tema anterior)`);
                 break; // Stop unlocking if a topic doesn't meet requirements
             }
         }
         
-        console.log('🔓 Temas desbloqueados:', unlocked);
+        console.log('🔓 Resumen de temas desbloqueados:', Object.keys(unlocked).length, 'de', this.temas.length);
         return unlocked;
     }
 
     async selectTema(temaId) {
         try {
-            console.log('🔄 Seleccionando tema:', temaId);
-            this.currentTemaId = temaId;
+            // Validate temaId before proceeding
+            if (!temaId || temaId === 'undefined' || temaId === undefined) {
+                console.error('❌ Error: temaId inválido al seleccionar tema:', temaId);
+                return;
+            }
+            
+            const numTemaId = parseInt(temaId);
+            if (isNaN(numTemaId) || numTemaId <= 0) {
+                console.error('❌ Error: temaId no es un número válido:', temaId);
+                return;
+            }
+            
+            console.log('🔄 Seleccionando tema:', numTemaId);
+            this.currentTemaId = numTemaId;
             
             // Load problems for this topic
-            this.problemas = await window.curriculumManager.cargarProblemas(temaId);
-            console.log('📝 Problemas cargados para tema', temaId, ':', this.problemas);
+            this.problemas = await window.curriculumManager.cargarProblemas(numTemaId);
+            console.log('📝 Problemas cargados para tema', numTemaId, ':', this.problemas?.length || 0);
             
             // Ensure problemas is an array
             if (!Array.isArray(this.problemas)) {
@@ -324,10 +423,13 @@ class ProblemsRenderer {
             // Render problems sidebar
             await this.renderProblemsList();
             
+            // Update counter after loading problems
+            this.updateProblemsCounter();
+            
             // Highlight selected topic
             document.querySelectorAll('.tema').forEach(el => {
                 el.classList.remove('active');
-                if (parseInt(el.dataset.temaId) === temaId) {
+                if (parseInt(el.dataset.temaId) === numTemaId) {
                     el.classList.add('active');
                 }
             });
@@ -354,13 +456,16 @@ class ProblemsRenderer {
         
         if (!this.currentTemaId) {
             problemsList.innerHTML = '<div class="text-gray-500 dark:text-slate-400 text-sm p-4">Selecciona un tema para ver los problemas</div>';
-            if (problemsCount) problemsCount.textContent = '0 problemas';
+            if (problemsCount) problemsCount.textContent = '0/10 completados';
             return;
         }
         
         if (!this.problemas || this.problemas.length === 0) {
             problemsList.innerHTML = '<div class="text-yellow-500 dark:text-yellow-400 text-sm p-4">No hay problemas disponibles para este tema</div>';
-            if (problemsCount) problemsCount.textContent = '0 problemas';
+            if (problemsCount) {
+                const completadosCount = (this.progresoPorTema[this.currentTemaId] || []).length;
+                problemsCount.textContent = `${completadosCount}/10 completados`;
+            }
             console.warn('⚠ No hay problemas para el tema', this.currentTemaId);
             return;
         }
@@ -392,6 +497,10 @@ class ProblemsRenderer {
         
         problemsList.innerHTML = html;
         
+        // Update problems count to show X/10 (for unlock requirement)
+        // Use the helper method for consistency
+        this.updateProblemsCounter();
+        
         // Add click handlers
         problemsList.querySelectorAll('.problema-item:not(.locked)').forEach(el => {
             el.addEventListener('click', () => {
@@ -415,15 +524,36 @@ class ProblemsRenderer {
         try {
             this.showLoading();
             
-            const problema = await window.curriculumManager.obtenerProblema(problemaId);
-            
-            if (!problema) {
-                this.showError('No se pudo cargar el problema.');
+            // Ensure problemaId is a number
+            problemaId = parseInt(problemaId);
+            if (isNaN(problemaId) || problemaId <= 0) {
+                this.showError('ID de problema inválido.');
                 return;
             }
             
+            const problema = await window.curriculumManager.obtenerProblema(problemaId);
+            
+            if (!problema) {
+                this.showError('No se pudo cargar el problema. El problema no existe en la base de datos.');
+                return;
+            }
+            
+            // Ensure we have the correct problemaId from the problem object (database ID takes precedence)
+            const actualProblemaId = problema.Id || problema.id || problema.IdProblema;
+            if (!actualProblemaId) {
+                console.error('❌ Problema sin ID válido:', problema);
+                this.showError('Error: El problema no tiene un ID válido. Por favor, recarga la página.');
+                return;
+            }
+            
+            if (actualProblemaId !== problemaId) {
+                console.warn(`⚠ ID mismatch: requested ${problemaId}, got ${actualProblemaId} from database. Using database ID ${actualProblemaId}.`);
+            }
+            
             this.currentProblema = problema;
-            this.currentProblemaId = problemaId;
+            this.currentProblemaId = actualProblemaId;
+            
+            console.log('✅ Problema cargado correctamente. ID:', this.currentProblemaId);
             
             this.renderProblem(problema);
             
@@ -487,9 +617,21 @@ class ProblemsRenderer {
             // Update UI
             const problemTitleEl = document.getElementById('problem-title');
             const problemDescEl = document.getElementById('problem-description');
+            const completedBadge = document.getElementById('completed-badge');
 
             if (problemTitleEl) {
                 problemTitleEl.textContent = titulo;
+            }
+            
+            // Show/hide completed badge
+            if (completedBadge) {
+                const completados = this.progresoPorTema[this.currentTemaId] || [];
+                const isCompleted = completados.includes(problemaId);
+                if (isCompleted) {
+                    completedBadge.classList.remove('hidden');
+                } else {
+                    completedBadge.classList.add('hidden');
+                }
             }
 
             if (problemDescEl) {
@@ -561,6 +703,46 @@ class ProblemsRenderer {
         // Loading is hidden when problem is rendered
     }
 
+    updateProblemsCounter() {
+        const problemsCount = document.getElementById('problems-count');
+        if (!problemsCount) {
+            console.warn('⚠️ Elemento problems-count no encontrado en el DOM');
+            return;
+        }
+        
+        if (!this.currentTemaId) {
+            console.warn('⚠️ currentTemaId no está definido, no se puede actualizar el contador');
+            problemsCount.textContent = '0/10 completados';
+            return;
+        }
+        
+        // Normalize temaId to ensure consistent lookup
+        const numTemaId = parseInt(this.currentTemaId);
+        if (isNaN(numTemaId) || numTemaId <= 0) {
+            console.error(`❌ currentTemaId no es válido: ${this.currentTemaId}`);
+            problemsCount.textContent = '0/10 completados';
+            return;
+        }
+        
+        // Try both numeric and string keys
+        const completados = this.progresoPorTema[numTemaId] || this.progresoPorTema[this.currentTemaId] || [];
+        const completadosCount = completados.length;
+        
+        console.log(`📊 Actualizando contador UI: ${completadosCount}/10 problemas completados del tema ${numTemaId}`);
+        console.log(`📊 Problemas completados para tema ${numTemaId}:`, completados);
+        console.log(`📊 progresoPorTema completo:`, this.progresoPorTema);
+        
+        if (completadosCount >= 10) {
+            problemsCount.textContent = `✓ ${completadosCount}/10 completados - ¡Tema completado!`;
+            problemsCount.classList.add('text-green-600', 'font-bold', 'dark:text-green-400');
+            problemsCount.classList.remove('text-gray-600', 'dark:text-gray-400');
+        } else {
+            problemsCount.textContent = `${completadosCount}/10 completados`;
+            problemsCount.classList.remove('text-green-600', 'font-bold', 'dark:text-green-400');
+            problemsCount.classList.add('text-gray-600', 'dark:text-gray-400');
+        }
+    }
+
     showProblem() {
         const problemContainer = document.getElementById('problem-container') ||
             document.querySelector('.problem-container');
@@ -616,9 +798,20 @@ class ProblemsRenderer {
                 return;
             }
 
-            console.log('🔄 Verificando solución:', { userId: this.userId, problemaId: this.currentProblemaId, codigoLength: codigo.length });
+            // Ensure problemaId is valid
+            const problemaIdToValidate = parseInt(this.currentProblemaId);
+            if (isNaN(problemaIdToValidate) || problemaIdToValidate <= 0) {
+                if (outputContent) {
+                    outputContent.textContent = "Error: ID de problema inválido. Por favor, recarga la página y selecciona un problema.";
+                    outputContent.classList.add('text-red-600');
+                }
+                if (verifyBtn) verifyBtn.disabled = false;
+                return;
+            }
             
-            const resultado = await window.curriculumManager.verificarSolucion(codigo, this.currentProblemaId);
+            console.log('🔄 Verificando solución:', { userId: this.userId, problemaId: problemaIdToValidate, codigoLength: codigo.length });
+            
+            const resultado = await window.curriculumManager.verificarSolucion(codigo, problemaIdToValidate);
             
             console.log('✅ Resultado verificación recibido:', resultado);
 
@@ -639,13 +832,115 @@ class ProblemsRenderer {
                         outputContent.textContent += ` (+${puntos} puntos)`;
                     }
 
+                    // Immediately update local progress state
+                    if (this.currentTemaId) {
+                        const numTemaId = parseInt(this.currentTemaId);
+                        if (!isNaN(numTemaId) && numTemaId > 0) {
+                            if (!this.progresoPorTema[numTemaId]) {
+                                this.progresoPorTema[numTemaId] = [];
+                            }
+                            // Add the current problem to completed list if not already there
+                            if (!this.progresoPorTema[numTemaId].includes(problemaIdToValidate)) {
+                                this.progresoPorTema[numTemaId].push(problemaIdToValidate);
+                                console.log(`✅ Problema ${problemaIdToValidate} agregado a completados del tema ${numTemaId}`);
+                                console.log(`📊 Estado actual del progreso para tema ${numTemaId}:`, this.progresoPorTema[numTemaId]);
+                            } else {
+                                console.log(`ℹ️ Problema ${problemaIdToValidate} ya estaba en completados del tema ${numTemaId}`);
+                            }
+                        } else {
+                            console.error(`❌ currentTemaId no es válido: ${this.currentTemaId}`);
+                        }
+                    } else {
+                        console.error(`❌ currentTemaId no está definido al intentar guardar progreso`);
+                    }
+                    
+                    // Update counter immediately to show progress in real-time (like Duolingo)
+                    console.log('🔄 Llamando a updateProblemsCounter()...');
+                    this.updateProblemsCounter();
+
                     // Reload progress and update UI after successful verification
+                    // Use a longer delay to ensure backend has saved the progress
                     setTimeout(async () => {
-                        await this.loadUserProgress();
+                        console.log('🔄 Recargando progreso desde el servidor después de completar problema...');
+                        if (this.currentTemaId) {
+                            const numTemaId = parseInt(this.currentTemaId);
+                            console.log(`📊 Estado ANTES de recargar - Tema ${numTemaId}:`, this.progresoPorTema[numTemaId] || []);
+                        }
+                        
+                        try {
+                            // Reload progress from server to get accurate count
+                            await this.loadUserProgress();
+                            
+                            console.log('📊 Progreso recargado. progresoPorTema completo:', this.progresoPorTema);
+                            if (this.currentTemaId) {
+                                const numTemaId = parseInt(this.currentTemaId);
+                                const completados = this.progresoPorTema[numTemaId] || [];
+                                console.log(`📊 Estado DESPUÉS de recargar - Tema ${numTemaId}:`, completados);
+                                console.log(`📊 Cantidad de problemas completados para tema ${numTemaId}:`, completados.length);
+                                
+                                // If the problem we just completed is not in the list, add it manually
+                                if (!completados.includes(problemaIdToValidate)) {
+                                    console.log(`⚠️ Problema ${problemaIdToValidate} no encontrado en progreso recargado, agregándolo manualmente...`);
+                                    if (!this.progresoPorTema[numTemaId]) {
+                                        this.progresoPorTema[numTemaId] = [];
+                                    }
+                                    this.progresoPorTema[numTemaId].push(problemaIdToValidate);
+                                    console.log(`✅ Problema ${problemaIdToValidate} agregado manualmente. Nuevo estado:`, this.progresoPorTema[numTemaId]);
+                                }
+                            }
+                            
+                            // Update counter with fresh data
+                            console.log('🔄 Actualizando contador con datos frescos del servidor...');
+                            this.updateProblemsCounter();
+                        } catch (error) {
+                            console.error('❌ Error recargando progreso:', error);
+                            // Even if reload fails, update counter with local state
+                            this.updateProblemsCounter();
+                        }
+                        
+                        // Re-render sidebar to show unlock status
                         await this.renderSidebarTemas();
+                        
+                        // Check if next topic should be unlocked (roadmap logic)
+                        const temasUnlocked = this.determineUnlockedTopics();
+                        console.log('🔓 Temas desbloqueados después de verificación:', temasUnlocked);
+                        
                         if (this.currentTemaId) {
                             await this.renderProblemsList();
+                            // Reload current problem to update completion status
+                            if (this.currentProblemaId) {
+                                await this.cargarProblema(this.currentProblemaId);
+                            }
                         }
+                        
+                        // Show unlock notification if next topic was unlocked (Duolingo-style)
+                        if (this.currentTemaId) {
+                            const currentTemaIndex = this.temas.findIndex(t => {
+                                const temaId = t.id || t.IdTemas || t.Id || t.idTemas;
+                                return temaId === this.currentTemaId;
+                            });
+                            
+                            if (currentTemaIndex >= 0 && currentTemaIndex < this.temas.length - 1) {
+                                const nextTema = this.temas[currentTemaIndex + 1];
+                                const nextTemaId = nextTema.id || nextTema.IdTemas || nextTema.Id || nextTema.idTemas;
+                                if (nextTemaId && temasUnlocked[nextTemaId]) {
+                                    const prevCompletados = (this.progresoPorTema[this.currentTemaId] || []).length;
+                                    if (prevCompletados >= 10) {
+                                        console.log('🎉 ¡Tema siguiente desbloqueado!', nextTema.titulo || nextTema.Titulo);
+                                        // Show notification to user (Duolingo-style celebration)
+                                        if (outputContent) {
+                                            const unlockMsg = `\n\n🎉 ¡Felicidades! Has desbloqueado el siguiente tema: "${nextTema.titulo || nextTema.Titulo}"`;
+                                            outputContent.textContent += unlockMsg;
+                                            // Optionally show a more prominent notification
+                                            setTimeout(() => {
+                                                alert(`🎉 ¡Excelente trabajo! Has desbloqueado: "${nextTema.titulo || nextTema.Titulo}"\n\nPuedes continuar con el siguiente tema en el roadmap.`);
+                                            }, 500);
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                        
                         if (verifyBtn) {
                             verifyBtn.disabled = false;
                         }
@@ -665,10 +960,33 @@ class ProblemsRenderer {
         } catch (error) {
             console.error('❌ Error verificando solución:', error);
             if (outputContent) {
-                const errorMsg = error.message || 'Error desconocido al verificar la solución.';
+                let errorMsg = error.message || 'Error desconocido al verificar la solución.';
+                
+                // If error mentions problemaId not found, provide more helpful message
+                if (errorMsg.includes('problema') && errorMsg.includes('no existe')) {
+                    errorMsg += '\n\n💡 Sugerencia: El problema puede no existir en la base de datos. ';
+                    errorMsg += 'Por favor, recarga la página y selecciona un problema de la lista.';
+                    errorMsg += '\n\nSi el problema persiste, verifica que la base de datos esté correctamente inicializada.';
+                }
+                
                 outputContent.textContent = `Error: ${errorMsg}`;
                 outputContent.classList.add('text-red-600');
                 outputContent.classList.remove('text-green-600');
+                
+                // Log diagnostic info
+                console.error('🔍 Diagnostic info:', {
+                    currentProblemaId: this.currentProblemaId,
+                    problemaIdToValidate: problemaIdToValidate,
+                    userId: this.userId
+                });
+                
+                // Try to get problem count for debugging
+                try {
+                    const problemCount = await window.api.getProblemCount();
+                    console.log('📊 Problemas en la base de datos:', problemCount);
+                } catch (e) {
+                    console.error('No se pudo obtener el conteo de problemas:', e);
+                }
             }
             if (verifyBtn) {
                 verifyBtn.disabled = false;

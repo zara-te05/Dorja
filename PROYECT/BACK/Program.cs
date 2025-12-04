@@ -27,7 +27,20 @@ builder.Services.AddSwaggerGen();
 // REGISTRAR CONFIGURACIÓN SQLITE
 var connectionString = builder.Configuration.GetConnectionString("DorjaConnection") 
     ?? throw new InvalidOperationException("Connection string 'DorjaConnection' not found.");
-builder.Services.AddSingleton(new SQLiteConfiguration(connectionString));
+
+// Ensure the connection string uses an absolute path
+var dbPath = connectionString.Replace("Data Source=", "").Trim();
+if (!Path.IsPathRooted(dbPath))
+{
+    // Make path absolute relative to the backend directory
+    dbPath = Path.Combine(Directory.GetCurrentDirectory(), dbPath);
+    connectionString = $"Data Source={dbPath}";
+    Console.WriteLine($"📁 Using absolute database path: {dbPath}");
+}
+
+// Store the normalized connection string for use throughout the app
+var normalizedConnectionString = connectionString;
+builder.Services.AddSingleton(new SQLiteConfiguration(normalizedConnectionString));
 
 
 // REGISTRAR REPOSITORIO
@@ -43,8 +56,19 @@ builder.Services.AddScoped<ICertificadosRepository, CertificadoRepository>();
 // REGISTRAR SERVICIOS
 builder.Services.AddScoped<ExerciseService>();
 
-// Initialize SQLite database
-DatabaseInitializer.InitializeDatabase(connectionString);
+// Initialize SQLite database (this will auto-fix incomplete databases)
+try
+{
+    Console.WriteLine("🔧 Initializing database...");
+    DatabaseInitializer.InitializeDatabase(normalizedConnectionString);
+    Console.WriteLine("✅ Database initialization complete.");
+}
+catch (Exception dbEx)
+{
+    Console.WriteLine($"❌ ERROR initializing database: {dbEx.Message}");
+    Console.WriteLine("⚠️ WARNING: Server will start but database may have issues.");
+    // Continue - don't prevent server from starting
+}
 
 var app = builder.Build();
 

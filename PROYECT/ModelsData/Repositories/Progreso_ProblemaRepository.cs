@@ -32,21 +32,54 @@ namespace DorjaData.Repositories
         public async Task<Progreso_Problema> GetDetails(int id)
         {
             var db = dbConnection();
-            var sql = "SELECT * FROM progreso_problema WHERE id = @Id";
+            // Mapeo explícito para asegurar que los campos se mapeen correctamente
+            var sql = @"SELECT 
+                            id as Id,
+                            user_id as UserId,
+                            problema_id as ProblemaId,
+                            completado as Completado,
+                            puntuacion as Puntuacion,
+                            intentos as Intentos,
+                            ultimo_codigo as UltimoCodigo,
+                            fecha_completado as FechaCompletado
+                        FROM progreso_problema 
+                        WHERE id = @Id";
             return await db.QueryFirstOrDefaultAsync<Progreso_Problema>(sql, new { Id = id });
         }
 
         public async Task<Progreso_Problema> GetByUserAndProblema(int userId, int problemaId)
         {
             var db = dbConnection();
-            var sql = "SELECT * FROM progreso_problema WHERE user_id = @UserId AND problema_id = @ProblemaId";
+            // Mapeo explícito para asegurar que los campos se mapeen correctamente
+            var sql = @"SELECT 
+                            id as Id,
+                            user_id as UserId,
+                            problema_id as ProblemaId,
+                            completado as Completado,
+                            puntuacion as Puntuacion,
+                            intentos as Intentos,
+                            ultimo_codigo as UltimoCodigo,
+                            fecha_completado as FechaCompletado
+                        FROM progreso_problema 
+                        WHERE user_id = @UserId AND problema_id = @ProblemaId";
             return await db.QueryFirstOrDefaultAsync<Progreso_Problema>(sql, new { UserId = userId, ProblemaId = problemaId });
         }
 
         public async Task<IEnumerable<Progreso_Problema>> GetByUserId(int userId)
         {
             var db = dbConnection();
-            var sql = "SELECT * FROM progreso_problema WHERE user_id = @UserId";
+            // Mapeo explícito para asegurar que los campos se mapeen correctamente
+            var sql = @"SELECT 
+                            id as Id,
+                            user_id as UserId,
+                            problema_id as ProblemaId,
+                            completado as Completado,
+                            puntuacion as Puntuacion,
+                            intentos as Intentos,
+                            ultimo_codigo as UltimoCodigo,
+                            fecha_completado as FechaCompletado
+                        FROM progreso_problema 
+                        WHERE user_id = @UserId";
             return await db.QueryAsync<Progreso_Problema>(sql, new { UserId = userId });
         }
 

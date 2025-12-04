@@ -542,6 +542,7 @@ namespace BACK.Services
 
                 if (progreso == null)
                 {
+                    // No existe, crear nuevo registro
                     progreso = new Progreso_Problema
                     {
                         UserId = userId,
@@ -565,10 +566,52 @@ namespace BACK.Services
                         }
                         return; // Silently fail
                     }
-                    Console.WriteLine($"✅ Progreso insertado exitosamente");
+                    Console.WriteLine($"✅ Progreso insertado exitosamente para UserId={userId}, ProblemaId={problemaId}");
                 }
                 else
                 {
+                    // Existe, actualizar registro
+                    Console.WriteLine($"📝 Progreso existente encontrado - Id: {progreso.Id}, Completado: {progreso.Completado}");
+                    
+                    // Asegurarse de que los IDs están correctos
+                    if (progreso.Id <= 0)
+                    {
+                        Console.WriteLine($"⚠️ WARNING: Progreso encontrado tiene Id inválido ({progreso.Id}). Intentando obtener ID correcto...");
+                        // Obtener el progreso de nuevo para asegurar que tiene el ID correcto
+                        var progresoVerificado = await _progresoProblemaRepository.GetByUserAndProblema(userId, problemaId);
+                        if (progresoVerificado != null && progresoVerificado.Id > 0)
+                        {
+                            progreso = progresoVerificado;
+                            Console.WriteLine($"✅ Progreso verificado - Id correcto: {progreso.Id}");
+                        }
+                        else
+                        {
+                            Console.WriteLine($"⚠️ WARNING: No se pudo obtener ID correcto. Insertando nuevo registro...");
+                            // Si no se puede obtener el ID, insertar como nuevo
+                            progreso = new Progreso_Problema
+                            {
+                                UserId = userId,
+                                ProblemaId = problemaId,
+                                Completado = isCorrect,
+                                Puntuacion = isCorrect ? puntosOtorgados : 0,
+                                Intentos = progreso.Intentos + 1,
+                                UltimoCodigo = codigo,
+                                FechaCompletado = isCorrect ? DateTime.UtcNow : (DateTime?)null
+                            };
+                            var inserted = await _progresoProblemaRepository.InsertProgreso_Problemas(progreso);
+                            if (inserted)
+                            {
+                                Console.WriteLine($"✅ Progreso reinsertado exitosamente");
+                                return;
+                            }
+                            else
+                            {
+                                Console.WriteLine($"⚠️ WARNING: No se pudo reinsertar el progreso");
+                                return;
+                            }
+                        }
+                    }
+                    
                     if (isCorrect && !progreso.Completado)
                     {
                         progreso.Completado = true;
@@ -580,13 +623,15 @@ namespace BACK.Services
                     progreso.Intentos++;
                     progreso.UltimoCodigo = codigo;
                     
+                    Console.WriteLine($"🔄 Actualizando progreso - Id: {progreso.Id}, UserId: {progreso.UserId}, ProblemaId: {progreso.ProblemaId}, Completado: {progreso.Completado}");
+                    
                     var updated = await _progresoProblemaRepository.UpdateProgreso_Problemas(progreso);
                     if (!updated)
                     {
-                        Console.WriteLine($"⚠️ WARNING: No se pudo actualizar el progreso para UserId={userId}, ProblemaId={problemaId}");
+                        Console.WriteLine($"⚠️ WARNING: No se pudo actualizar el progreso para UserId={userId}, ProblemaId={problemaId}, ProgresoId={progreso.Id}");
                         return; // Silently fail
                     }
-                    Console.WriteLine($"✅ Progreso actualizado exitosamente");
+                    Console.WriteLine($"✅ Progreso actualizado exitosamente para UserId={userId}, ProblemaId={problemaId}");
                 }
             }
             catch (Exception ex) when (ex.Message.Contains("FOREIGN KEY constraint failed") || 

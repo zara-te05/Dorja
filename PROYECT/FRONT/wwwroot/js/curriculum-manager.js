@@ -49,22 +49,94 @@ class CurriculumManager {
         }
     }
 
-    async cargarProblemas(temaId) {
+    async cargarProblemas(temaId, useRandom = true) {
         try {
-            console.log('🔄 Solicitando problemas para tema:', temaId);
+            // Validate temaId
+            if (!temaId || temaId === 'undefined' || temaId === undefined) {
+                console.error('❌ Error: temaId inválido en cargarProblemas:', temaId);
+                throw new Error('temaId inválido');
+            }
+            
+            const numTemaId = parseInt(temaId);
+            if (isNaN(numTemaId) || numTemaId <= 0) {
+                console.error('❌ Error: temaId no es un número válido:', temaId);
+                throw new Error('temaId no es un número válido');
+            }
+            
+            console.log('🔄 Solicitando problemas para tema:', numTemaId, useRandom ? '(aleatorios)' : '(todos)');
 
             if (this.useMockData) {
                 console.log('📝 Usando datos de prueba para problemas');
                 return await this.getMockProblemas(temaId);
             }
 
-            const problemas = await this.api.cargarProblemas(this.currentUser, temaId);
+            // Use random problems by default to prevent sharing solutions between users
+            const problemas = await this.api.cargarProblemas(this.currentUser, numTemaId, useRandom, 10);
             console.log('📝 Problemas recibidos:', problemas);
-            return problemas;
+            
+            // Ensure problemas is an array and has valid IDs
+            if (!Array.isArray(problemas)) {
+                console.error('❌ Problemas no es un array:', problemas);
+                throw new Error('Formato de respuesta inválido: se esperaba un array de problemas');
+            }
+            
+            // If we got random problems, shuffle them again client-side for extra randomness
+            let problemasValidos;
+            if (useRandom && problemas.length > 0) {
+                const shuffled = [...problemas].sort(() => Math.random() - 0.5);
+                console.log('🔄 Problemas aleatorizados:', shuffled.length);
+                // Validate that each problem has a valid ID - be more lenient with property names
+                problemasValidos = shuffled.filter(p => {
+                    if (!p) {
+                        console.warn('⚠ Problema nulo o undefined:', p);
+                        return false;
+                    }
+                    // Try multiple ways to get the ID
+                    const id = p.Id || p.id || p.IdProblema || p.idProblema || p.Id_Problema;
+                    const idNum = parseInt(id);
+                    if (!id || isNaN(idNum) || idNum <= 0) {
+                        console.warn('⚠ Problema sin ID válido. Objeto completo:', p, 'ID intentado:', id);
+                        return false;
+                    }
+                    return true;
+                });
+            } else {
+                // Validate that each problem has a valid ID - be more lenient
+                problemasValidos = problemas.filter(p => {
+                    if (!p) {
+                        console.warn('⚠ Problema nulo o undefined:', p);
+                        return false;
+                    }
+                    // Try multiple ways to get the ID
+                    const id = p.Id || p.id || p.IdProblema || p.idProblema || p.Id_Problema;
+                    const idNum = parseInt(id);
+                    if (!id || isNaN(idNum) || idNum <= 0) {
+                        console.warn('⚠ Problema sin ID válido. Objeto completo:', p, 'ID intentado:', id);
+                        return false;
+                    }
+                    return true;
+                });
+            }
+            
+            console.log(`📊 Problemas recibidos: ${problemas.length}, Problemas válidos después de validación: ${problemasValidos.length}`);
+            
+            if (problemasValidos.length === 0 && problemas.length > 0) {
+                console.error('❌ Ningún problema tiene un ID válido de', problemas.length, 'problemas recibidos');
+                console.error('❌ Primeros problemas recibidos para inspección:', problemas.slice(0, 3));
+                // Don't throw error, return empty array instead
+                return [];
+            }
+            
+            if (problemasValidos.length < problemas.length) {
+                console.warn(`⚠ Se filtraron ${problemas.length - problemasValidos.length} problemas por falta de ID válido`);
+            }
+            
+            console.log(`✅ ${problemasValidos.length} problemas válidos cargados para tema ${numTemaId}`);
+            return problemasValidos;
         } catch (error) {
             console.error('❌ Error cargando problemas:', error);
-            console.log('📝 Usando datos de prueba debido al error');
-            return await this.getMockProblemas(temaId);
+            // Don't fall back to mock data - throw the error
+            throw error;
         }
     }
 
@@ -79,11 +151,22 @@ class CurriculumManager {
 
             const problema = await this.api.obtenerProblema(problemaId);
             console.log('📄 Problema recibido:', problema);
+            
+            if (!problema) {
+                throw new Error(`Problema con ID ${problemaId} no encontrado en la base de datos`);
+            }
+            
+            // Ensure we have a valid ID from the database
+            if (!problema.Id && !problema.id) {
+                console.error('❌ Problema recibido sin ID válido:', problema);
+                throw new Error(`Problema recibido sin ID válido`);
+            }
+            
             return problema;
         } catch (error) {
             console.error('❌ Error obteniendo problema:', error);
-            console.log('📄 Usando datos de prueba debido al error');
-            return await this.getMockProblema(problemaId);
+            // Don't fall back to mock data - throw the error so the UI can handle it
+            throw error;
         }
     }
 
@@ -96,12 +179,12 @@ class CurriculumManager {
                 return { correcto: true, mensaje: "¡Correcto! (simulado)" };
             }
 
-            if (!window.api || !window.api.validateSolution) {
-                console.error('❌ API.validateSolution no está disponible');
+            if (!window.api || !window.api.verificarSolucion) {
+                console.error('❌ API.verificarSolucion no está disponible');
                 return { correcto: false, mensaje: "Error: API de verificación no disponible" };
             }
 
-            const resultado = await window.api.validateSolution(this.currentUser, problemaId, codigoUsuario);
+            const resultado = await window.api.verificarSolucion(this.currentUser, problemaId, codigoUsuario);
             console.log('✅ Resultado verificación recibido:', resultado);
 
             // Handle different response formats from API

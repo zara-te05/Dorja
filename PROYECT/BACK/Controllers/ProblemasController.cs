@@ -24,10 +24,80 @@ namespace BACK.Controllers
             return Ok(await _problemaRepository.GetAllProblemas());
         }
 
+        [HttpGet("count")]
+        public async Task<IActionResult> GetProblemCount()
+        {
+            var allProblems = await _problemaRepository.GetAllProblemas();
+            var problemList = allProblems.ToList();
+            return Ok(new { 
+                total = problemList.Count,
+                problems = problemList.Take(50).Select(p => new { 
+                    id = p.Id, 
+                    temaId = p.TemaId, 
+                    titulo = p.Titulo 
+                })
+            });
+        }
+
+        // IMPORTANT: Esta ruta debe ir ANTES de [HttpGet("{id}")] para evitar conflictos de enrutamiento
+        [HttpGet("tema/{temaId}/random")]
+        public async Task<IActionResult> GetRandomProblemasByTema(int temaId, [FromQuery] int count = 10, [FromQuery] int? userId = null)
+        {
+            try
+            {
+                Console.WriteLine($"🔄 GET /Problemas/tema/{temaId}/random?count={count}&userId={userId}");
+                
+                // Get all problems for this topic first to check availability
+                var allProblemas = await _problemaRepository.GetProblemasByTema(temaId);
+                var allProblemasList = allProblemas.ToList();
+                Console.WriteLine($"📊 Total de problemas disponibles para tema {temaId}: {allProblemasList.Count} (solicitados: {count})");
+                
+                var problemas = await _problemaRepository.GetProblemasRandomByTema(temaId, count, userId);
+                var problemasList = problemas.ToList();
+                
+                Console.WriteLine($"✅ Devolviendo {problemasList.Count} problemas aleatorios para tema {temaId} (solicitados: {count})");
+                
+                // Log problem IDs for debugging
+                if (problemasList.Count > 0)
+                {
+                    var ids = string.Join(", ", problemasList.Select(p => p.Id));
+                    Console.WriteLine($"📋 IDs de problemas devueltos: {ids}");
+                }
+                else
+                {
+                    Console.WriteLine($"⚠️ No se devolvieron problemas. Posibles razones:");
+                    Console.WriteLine($"   - No hay problemas disponibles para tema {temaId}");
+                    Console.WriteLine($"   - Todos los problemas ya están completados (userId: {userId})");
+                    Console.WriteLine($"   - Todos los problemas están bloqueados");
+                }
+                
+                return Ok(problemasList);
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"❌ Error al obtener problemas aleatorios: {ex.Message}");
+                Console.WriteLine($"Stack trace: {ex.StackTrace}");
+                return StatusCode(500, new { message = $"Error al obtener problemas aleatorios: {ex.Message}", stackTrace = ex.StackTrace });
+            }
+        }
+        
         [HttpGet("{id}")]
         public async Task<IActionResult> GetDetails(int id) 
         { 
-            return Ok(await _problemaRepository.GetDetails(id));
+            var problema = await _problemaRepository.GetDetails(id);
+            if (problema == null)
+            {
+                // Get all problems to help debug
+                var allProblems = await _problemaRepository.GetAllProblemas();
+                var problemList = allProblems.ToList();
+                var problemIds = string.Join(", ", problemList.Take(20).Select(p => p.Id));
+                return NotFound(new { 
+                    message = $"Problema con ID {id} no encontrado",
+                    totalProblems = problemList.Count,
+                    availableIds = problemIds
+                });
+            }
+            return Ok(problema);
         }
 
         [HttpPost]
