@@ -191,7 +191,7 @@
                                     <i class="fas fa-fire text-white text-lg"></i>
                                 </div>
                                 <div>
-                                    <span class="font-bold text-2xl text-gray-900 dark:text-white">1</span>
+                                    <span id="streak-days" class="font-bold text-2xl text-gray-900 dark:text-white">1</span>
                                     <span
                                         class="font-semibold text-base text-gray-700 dark:text-gray-300 ml-1">día</span>
                                 </div>
@@ -243,14 +243,14 @@
                                 Progreso</p>
                             <div class="mb-3">
                                 <div class="flex items-center justify-between mb-2">
-                                    <span class="font-bold text-xl text-gray-900 dark:text-white">10%</span>
+                                    <span id="completion-percentage" class="font-bold text-xl text-gray-900 dark:text-white">10%</span>
                                     <span class="text-xs font-medium text-purple-600 dark:text-purple-400">Nivel
                                         1</span>
                                 </div>
                                 <div
                                     class="w-full bg-gray-200/60 dark:bg-slate-700/60 rounded-full h-3 overflow-hidden shadow-inner">
-                                    <div class="bg-gradient-to-r from-indigo-500 via-purple-500 to-pink-500 h-3 rounded-full shadow-md relative overflow-hidden transition-all duration-500"
-                                        style="width:65%">
+                                    <div id="completion-progress-bar" class="bg-gradient-to-r from-indigo-500 via-purple-500 to-pink-500 h-3 rounded-full shadow-md relative overflow-hidden transition-all duration-500"
+                                        style="width:10%">
                                         <div
                                             class="absolute inset-0 bg-gradient-to-r from-transparent via-white/30 to-transparent animate-shimmer">
                                         </div>
@@ -422,9 +422,44 @@
             const rk = document.getElementById('random-knowledge');
             if (rk) rk.textContent = random;
 
+            // Load user statistics
+            loadUserStats(userId);
+
             // Notifications functionality
             initializeNotifications();
         });
+
+        // Load and display user statistics
+        async function loadUserStats(userId) {
+            try {
+                const stats = await window.api.getUserStats(parseInt(userId));
+                
+                if (stats && stats.streak !== undefined && stats.completionPercentage !== undefined) {
+                    // Update streak
+                    const streakEl = document.getElementById('streak-days');
+                    if (streakEl) {
+                        streakEl.textContent = stats.streak || 0;
+                    }
+
+                    // Update completion percentage
+                    const percentageEl = document.getElementById('completion-percentage');
+                    const progressBarEl = document.getElementById('completion-progress-bar');
+                    
+                    if (percentageEl) {
+                        const percentage = Math.round(stats.completionPercentage || 0);
+                        percentageEl.textContent = percentage + '%';
+                    }
+
+                    if (progressBarEl) {
+                        const percentage = Math.min(100, Math.max(0, stats.completionPercentage || 0));
+                        progressBarEl.style.width = percentage + '%';
+                    }
+                }
+            } catch (error) {
+                console.error('Error loading user stats:', error);
+                // Keep default values if there's an error
+            }
+        }
 
         function initializeNotifications() {
             const notificationsButton = document.getElementById('notifications-button');

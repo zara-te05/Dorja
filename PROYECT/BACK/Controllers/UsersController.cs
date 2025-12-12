@@ -4,6 +4,7 @@ using DorjaModelado.Repositories;
 using DorjaModelado;
 using DorjaData.Repositories;
 using System.Text;
+using System.Linq;
 
 
 namespace BACK.Controllers
@@ -15,12 +16,21 @@ namespace BACK.Controllers
         private readonly IUserRepository _usersRepository;
         private readonly ILogrosRepository _logrosRepository;
         private readonly ILogros_UsuarioRepository _logrosUsuarioRepository;
+        private readonly IProblemaRepository _problemaRepository;
+        private readonly IProgreso_ProblemaRepository _progresoProblemaRepository;
 
-        public UsersController(IUserRepository usersRepository, ILogrosRepository logrosRepository, ILogros_UsuarioRepository logrosUsuarioRepository)
+        public UsersController(
+            IUserRepository usersRepository, 
+            ILogrosRepository logrosRepository, 
+            ILogros_UsuarioRepository logrosUsuarioRepository,
+            IProblemaRepository problemaRepository,
+            IProgreso_ProblemaRepository progresoProblemaRepository)
         {
             _usersRepository = usersRepository;
             _logrosRepository = logrosRepository;
             _logrosUsuarioRepository = logrosUsuarioRepository;
+            _problemaRepository = problemaRepository;
+            _progresoProblemaRepository = progresoProblemaRepository;
         }
 
         [HttpGet]
@@ -520,6 +530,126 @@ namespace BACK.Controllers
             {
                 Console.WriteLine($"Error granting logro '{logroNombre}' to user {userId}: {ex.Message}");
                 return false;
+            }
+        }
+
+        // --------------------------  STATISTICS  ----------------------------
+
+        [HttpGet("{userId}/stats")]
+        public async Task<IActionResult> GetUserStats(int userId)
+        {
+            try
+            {
+                // Verify user exists
+                var user = await _usersRepository.GetDetails(userId);
+                if (user == null)
+                {
+                    return NotFound(new { message = "Usuario no encontrado" });
+                }
+
+                // Update last connection time if it's a different day
+                var today = DateTime.Today;
+                if (user.UltimaConexion == null || user.UltimaConexion.Value.Date < today)
+                {
+                    user.UltimaConexion = DateTime.Now;
+                    await _usersRepository.UpdateUsuarios(user);
+                    // Reload user to get updated UltimaConexion
+                    user = await _usersRepository.GetDetails(userId);
+                }
+
+                // Calculate streak: consecutive days with activity
+                var streak = await CalculateStreak(userId, user);
+
+                // Calculate exercise completion percentage
+                var completionPercentage = await CalculateCompletionPercentage(userId);
+
+                return Ok(new
+                {
+                    streak = streak,
+                    completionPercentage = completionPercentage
+                });
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"Error getting stats for user {userId}: {ex.Message}");
+                return StatusCode(500, new { message = $"Error al obtener estadísticas: {ex.Message}" });
+            }
+        }
+
+        private async Task<int> CalculateStreak(int userId, Users user)
+        {
+            try
+            {
+                var today = DateTime.Today;
+
+                // Get all completed exercises with their completion dates
+                var progresos = await _progresoProblemaRepository.GetByUserId(userId);
+                var completedProgresos = progresos.Where(p => p.Completado && p.FechaCompletado.HasValue).ToList();
+
+                // Get unique dates when exercises were completed
+                var activityDates = completedProgresos
+                    .Select(p => p.FechaCompletado.Value.Date)
+                    .Distinct()
+                    .ToHashSet();
+
+                // Include today if user has activity today (even if no exercises completed)
+                // This counts just using the app as activity
+                if (user.UltimaConexion != null && user.UltimaConexion.Value.Date == today)
+                {
+                    activityDates.Add(today);
+                }
+
+                // If no activity at all, return 0
+                if (activityDates.Count == 0)
+                {
+                    return 0;
+                }
+
+                // Calculate consecutive days from today backwards
+                int streak = 0;
+                var currentDate = today;
+
+                // Count consecutive days backwards
+                while (activityDates.Contains(currentDate))
+                {
+                    streak++;
+                    currentDate = currentDate.AddDays(-1);
+                }
+
+                return streak;
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"Error calculating streak for user {userId}: {ex.Message}");
+                return 0;
+            }
+        }
+
+        private async Task<double> CalculateCompletionPercentage(int userId)
+        {
+            try
+            {
+                // Get total number of problems
+                var allProblemas = await _problemaRepository.GetAllProblemas();
+                var totalProblemas = allProblemas.Count();
+
+                if (totalProblemas == 0)
+                {
+                    return 0;
+                }
+
+                // Get completed exercises for this user
+                var progresos = await _progresoProblemaRepository.GetByUserId(userId);
+                var completedCount = progresos.Count(p => p.Completado);
+
+                // Calculate percentage
+                var percentage = (double)completedCount / totalProblemas * 100;
+                return Math.Round(percentage, 1); // Round to 1 decimal place
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"Error calculating completion percentage for user {userId}: {ex.Message}");
+                return 0;
             }
         }
     }

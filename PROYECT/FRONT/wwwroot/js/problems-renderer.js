@@ -470,17 +470,26 @@ class ProblemsRenderer {
             return;
         }
         
-        // Get completed problems for this topic
-        const completados = this.progresoPorTema[this.currentTemaId] || [];
+        // Get completed problems for this topic - normalize temaId for consistent lookup
+        const numTemaId = parseInt(this.currentTemaId);
+        const completados = this.progresoPorTema[numTemaId] || this.progresoPorTema[this.currentTemaId] || [];
+        console.log(`🎨 Renderizando lista - Tema ${numTemaId}, Completados:`, completados);
         
         let html = '';
         for (let i = 0; i < this.problemas.length; i++) {
             const problema = this.problemas[i];
             const problemaId = problema.id || problema.Id;
+            // Normalize problemaId to number for consistent comparison
+            const numProblemaId = parseInt(problemaId);
             const titulo = problema.titulo || problema.Titulo || 'Sin título';
-            const isCompleted = completados.includes(problemaId);
+            // Check both numeric and string versions for compatibility
+            const isCompleted = completados.includes(numProblemaId) || completados.includes(problemaId) || completados.includes(numProblemaId.toString()) || completados.includes(problemaId.toString());
             const isLocked = problema.locked || problema.Locked;
-            const isActive = this.currentProblemaId === problemaId;
+            const isActive = this.currentProblemaId === problemaId || this.currentProblemaId === numProblemaId;
+            
+            if (isCompleted) {
+                console.log(`  ✅ Problema ${numProblemaId} marcado como completado en render`);
+            }
             
             html += `
                 <div class="problema-item p-2 mb-1 rounded ${isCompleted ? 'completed' : ''} ${isActive ? 'active' : ''} ${isLocked ? 'locked' : ''}"
@@ -703,6 +712,99 @@ class ProblemsRenderer {
         // Loading is hidden when problem is rendered
     }
 
+    updateProblemCompletedUI(problemaId, isCompleted) {
+        // Normalize problemaId to number for consistent matching
+        const numProblemaId = parseInt(problemaId);
+        console.log(`🎨 Actualizando UI visual para problema ${numProblemaId}, completado: ${isCompleted}`);
+        
+        // Try multiple selector strategies to find the element
+        let problemaItem = document.querySelector(`.problema-item[data-problema-id="${numProblemaId}"]`);
+        if (!problemaItem) {
+            problemaItem = document.querySelector(`.problema-item[data-problema-id="${problemaId}"]`);
+        }
+        if (!problemaItem) {
+            // Try finding by comparing all items
+            const allItems = document.querySelectorAll('.problema-item');
+            for (const item of allItems) {
+                const itemId = parseInt(item.getAttribute('data-problema-id'));
+                if (itemId === numProblemaId) {
+                    problemaItem = item;
+                    break;
+                }
+            }
+        }
+        
+        if (problemaItem) {
+            console.log(`✅ Elemento encontrado para problema ${numProblemaId}`);
+            
+            if (isCompleted) {
+                // Force add completed class for green styling
+                problemaItem.classList.add('completed');
+                
+                // Also add inline styles as backup to ensure green color is visible
+                problemaItem.style.backgroundColor = '#dcfce7';
+                problemaItem.style.borderLeft = '3px solid #16a34a';
+                
+                // Find the flex container
+                let flexContainer = problemaItem.querySelector('.flex.items-center.justify-between');
+                
+                if (flexContainer) {
+                    // Remove any existing checkmark first
+                    const existingChecks = flexContainer.querySelectorAll('.text-green-600, span.text-green-600');
+                    existingChecks.forEach(check => {
+                        const text = check.textContent || check.innerText || '';
+                        if (text.trim() === '✓' || text.includes('✓')) {
+                            check.remove();
+                        }
+                    });
+                    
+                    // Add checkmark
+                    const checkmark = document.createElement('span');
+                    checkmark.className = 'text-green-600 font-bold ml-2';
+                    checkmark.textContent = '✓';
+                    checkmark.style.fontSize = '1.2em';
+                    flexContainer.appendChild(checkmark);
+                    
+                    console.log(`✅ Checkmark agregado al problema ${numProblemaId}`);
+                } else {
+                    console.warn(`⚠️ No se encontró flex container para problema ${numProblemaId}`);
+                }
+                
+                console.log(`✅ Problema ${numProblemaId} marcado visualmente como completado - Clase 'completed' agregada + estilos inline aplicados`);
+            } else {
+                problemaItem.classList.remove('completed');
+                problemaItem.style.backgroundColor = '';
+                problemaItem.style.borderLeft = '';
+                const checkmarks = problemaItem.querySelectorAll('.text-green-600');
+                checkmarks.forEach(check => {
+                    if (check.textContent === '✓' || check.textContent.trim() === '✓') {
+                        check.remove();
+                    }
+                });
+            }
+        } else {
+            console.warn(`⚠️ No se encontró elemento DOM para problema ${numProblemaId}`);
+            // Debug: list all problema items
+            const allItems = document.querySelectorAll('.problema-item');
+            console.log(`🔍 Total de elementos problema-item encontrados: ${allItems.length}`);
+            allItems.forEach((item, index) => {
+                const itemId = item.getAttribute('data-problema-id');
+                console.log(`   Item ${index}: data-problema-id="${itemId}"`);
+            });
+        }
+        
+        // Also update the completed badge in the problem view
+        const completedBadge = document.getElementById('completed-badge');
+        if (completedBadge) {
+            if (isCompleted) {
+                completedBadge.classList.remove('hidden');
+                console.log(`✅ Badge 'Completado' mostrado`);
+            } else {
+                completedBadge.classList.add('hidden');
+            }
+        }
+    }
+
     updateProblemsCounter() {
         const problemsCount = document.getElementById('problems-count');
         if (!problemsCount) {
@@ -832,31 +934,79 @@ class ProblemsRenderer {
                         outputContent.textContent += ` (+${puntos} puntos)`;
                     }
 
-                    // Immediately update local progress state
+                    // CRITICAL: Update local state FIRST before any UI updates
+                    // This ensures that when we re-render, the state is already correct
                     if (this.currentTemaId) {
                         const numTemaId = parseInt(this.currentTemaId);
-                        if (!isNaN(numTemaId) && numTemaId > 0) {
+                        const numProblemaId = parseInt(problemaIdToValidate);
+                        
+                        if (!isNaN(numTemaId) && numTemaId > 0 && !isNaN(numProblemaId) && numProblemaId > 0) {
                             if (!this.progresoPorTema[numTemaId]) {
                                 this.progresoPorTema[numTemaId] = [];
                             }
-                            // Add the current problem to completed list if not already there
-                            if (!this.progresoPorTema[numTemaId].includes(problemaIdToValidate)) {
-                                this.progresoPorTema[numTemaId].push(problemaIdToValidate);
-                                console.log(`✅ Problema ${problemaIdToValidate} agregado a completados del tema ${numTemaId}`);
+                            
+                            // Ensure problem is in completed list (use numeric ID for consistency)
+                            if (!this.progresoPorTema[numTemaId].includes(numProblemaId)) {
+                                this.progresoPorTema[numTemaId].push(numProblemaId);
+                                console.log(`✅ Estado actualizado - Problema ${numProblemaId} agregado a completados del tema ${numTemaId}`);
                                 console.log(`📊 Estado actual del progreso para tema ${numTemaId}:`, this.progresoPorTema[numTemaId]);
                             } else {
-                                console.log(`ℹ️ Problema ${problemaIdToValidate} ya estaba en completados del tema ${numTemaId}`);
+                                console.log(`ℹ️ Problema ${numProblemaId} ya estaba en completados del tema ${numTemaId}`);
                             }
                         } else {
-                            console.error(`❌ currentTemaId no es válido: ${this.currentTemaId}`);
+                            console.error(`❌ IDs inválidos - TemaId: ${this.currentTemaId}, ProblemaId: ${problemaIdToValidate}`);
                         }
                     } else {
                         console.error(`❌ currentTemaId no está definido al intentar guardar progreso`);
                     }
                     
-                    // Update counter immediately to show progress in real-time (like Duolingo)
-                    console.log('🔄 Llamando a updateProblemsCounter()...');
+                    // CRITICAL: Re-render the problems list immediately with updated state
+                    // This ensures the HTML is regenerated with the correct completed state
+                    console.log('🔄 Re-renderizando lista de problemas con estado actualizado...');
+                    
+                    // Update counter first
                     this.updateProblemsCounter();
+                    
+                    // Then re-render the entire list - this will include the completed problem in the state
+                    this.renderProblemsList().then(() => {
+                        const problemaIdForUI = parseInt(problemaIdToValidate);
+                        console.log(`✅ Lista re-renderizada. Verificando problema ${problemaIdForUI}...`);
+                        
+                        // After re-render, verify and force visual update if needed
+                        setTimeout(() => {
+                            const verifyItem = document.querySelector(`.problema-item[data-problema-id="${problemaIdForUI}"]`);
+                            if (verifyItem) {
+                                // Force completed class and styles
+                                verifyItem.classList.add('completed');
+                                verifyItem.style.backgroundColor = '#dcfce7';
+                                verifyItem.style.borderLeft = '3px solid #16a34a';
+                                
+                                // Ensure checkmark is present
+                                let flexContainer = verifyItem.querySelector('.flex.items-center.justify-between');
+                                if (flexContainer) {
+                                    // Remove existing checkmarks
+                                    const existingChecks = flexContainer.querySelectorAll('.text-green-600');
+                                    existingChecks.forEach(check => check.remove());
+                                    
+                                    // Add checkmark
+                                    const checkmark = document.createElement('span');
+                                    checkmark.className = 'text-green-600 font-bold ml-2';
+                                    checkmark.textContent = '✓';
+                                    flexContainer.appendChild(checkmark);
+                                }
+                                
+                                console.log(`✅ Problema ${problemaIdForUI} marcado visualmente como completado (forzado)`);
+                            } else {
+                                console.error(`❌ No se encontró elemento DOM para problema ${problemaIdForUI}`);
+                                // Debug: list all items
+                                const allItems = document.querySelectorAll('.problema-item');
+                                console.log(`🔍 Total de elementos problema-item: ${allItems.length}`);
+                                allItems.forEach((item, idx) => {
+                                    console.log(`   ${idx}: data-problema-id="${item.getAttribute('data-problema-id')}"`);
+                                });
+                            }
+                        }, 100);
+                    });
 
                     // Reload progress and update UI after successful verification
                     // Use a longer delay to ensure backend has saved the progress
@@ -907,6 +1057,14 @@ class ProblemsRenderer {
                         
                         if (this.currentTemaId) {
                             await this.renderProblemsList();
+                            // After re-rendering, re-apply visual state to ensure completed problems are marked
+                            const numTemaId = parseInt(this.currentTemaId);
+                            const completados = this.progresoPorTema[numTemaId] || [];
+                            completados.forEach(probId => {
+                                this.updateProblemCompletedUI(probId, true);
+                            });
+                            console.log(`✅ Estado visual re-aplicado después de recargar progreso`);
+                            
                             // Reload current problem to update completion status
                             if (this.currentProblemaId) {
                                 await this.cargarProblema(this.currentProblemaId);

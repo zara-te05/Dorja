@@ -886,15 +886,20 @@
             let totalTemas = 0;
             let temasCompletados = 0;
             const temaProgress = {}; // Progreso por tema
+            const nivelProgress = {}; // Progreso por nivel
 
             // Calcular progreso por tema y nivel
             niveles.forEach(nivel => {
                 const nivelId = nivel.IdNiveles || nivel.id;
+                const nivelOrden = nivel.orden || nivel.IdNiveles || 0;
                 const nivelTemas = temas.filter(t =>
                     t.IdNivel === nivelId ||
                     t.IdNivel === nivel.IdNiveles ||
                     t.IdNivel === nivel.id
                 );
+
+                let nivelProblemas = 0;
+                let nivelProblemasCompletados = 0;
 
                 nivelTemas.forEach(tema => {
                     const temaId = tema.IdTemas || tema.id;
@@ -903,6 +908,7 @@
                     );
 
                     totalProblemas += temaProblemas.length;
+                    nivelProblemas += temaProblemas.length;
                     totalTemas++;
 
                     // Problemas completados de este tema
@@ -914,6 +920,7 @@
                     ).length;
 
                     problemasCompletados += completados;
+                    nivelProblemasCompletados += completados;
 
                     // Calcular progreso del tema
                     const temaProgressPercent = temaProblemas.length > 0
@@ -932,6 +939,19 @@
                         temasCompletados++;
                     }
                 });
+
+                // Calcular progreso del nivel
+                const nivelProgressPercent = nivelProblemas > 0
+                    ? Math.round((nivelProblemasCompletados / nivelProblemas) * 100)
+                    : 0;
+
+                nivelProgress[nivelId] = {
+                    completados: nivelProblemasCompletados,
+                    total: nivelProblemas,
+                    porcentaje: nivelProgressPercent,
+                    completado: nivelProgressPercent === 100 && nivelProblemas > 0,
+                    orden: nivelOrden
+                };
             });
 
             // Calcular progreso general
@@ -943,8 +963,16 @@
                 ? Math.round((temasCompletados / totalTemas) * 100)
                 : 0;
 
-            // Progreso general combinado (50% problemas, 50% temas)
+            // Progreso general combinado (60% problemas, 40% temas)
             const overallProgress = Math.round((problemasProgress * 0.6 + temasProgress * 0.4));
+
+            // Calcular niveles completados basados en progreso real
+            let nivelesCompletados = 0;
+            Object.values(nivelProgress).forEach(nivel => {
+                if (nivel.completado && nivel.total > 0) {
+                    nivelesCompletados++;
+                }
+            });
 
             return {
                 totalProblemas,
@@ -954,19 +982,66 @@
                 temasCompletados,
                 temasProgress,
                 overallProgress,
-                temaProgress
+                temaProgress,
+                nivelProgress,
+                nivelesCompletados
             };
+        }
+
+        // Función para animar el cambio de un número
+        function animateNumber(element, newValue, duration = 500) {
+            if (!element) return;
+
+            const isPercentage = typeof newValue === 'string' && newValue.includes('%');
+            const targetValue = isPercentage ? parseInt(newValue) : parseInt(newValue);
+            const currentText = element.textContent.trim();
+            
+            // Manejar caso inicial cuando el texto es "-"
+            const startValue = (currentText === '-' || currentText === '') ? 0 : (parseInt(currentText) || 0);
+            
+            const increment = targetValue > startValue ? 1 : -1;
+            const steps = Math.abs(targetValue - startValue);
+            const stepDuration = Math.max(10, duration / Math.max(steps, 1));
+
+            if (steps === 0) {
+                element.textContent = isPercentage ? `${targetValue}%` : targetValue;
+                return;
+            }
+
+            let currentStep = 0;
+            const timer = setInterval(() => {
+                currentStep++;
+                const newVal = Math.round(startValue + (increment * currentStep));
+                
+                if ((increment > 0 && newVal >= targetValue) || (increment < 0 && newVal <= targetValue)) {
+                    element.textContent = isPercentage ? `${targetValue}%` : targetValue;
+                    clearInterval(timer);
+                    // Efecto de pulso al finalizar
+                    element.style.transform = 'scale(1.2)';
+                    element.style.transition = 'transform 0.3s ease';
+                    setTimeout(() => {
+                        element.style.transform = 'scale(1)';
+                    }, 300);
+                } else {
+                    element.textContent = isPercentage ? `${newVal}%` : newVal;
+                }
+            }, stepDuration);
         }
 
         function updateStatsPanel(niveles, currentLevel, totalPoints, progressData = null) {
             const totalLevels = niveles.length;
-            const completedLevels = Math.max(0, currentLevel - 1);
-
-            // Usar progreso detallado si está disponible
+            
+            // Calcular niveles completados basado en progreso real
+            let completedLevels = 0;
             let overallProgress = 0;
-            if (progressData) {
+
+            if (progressData && progressData.nivelesCompletados !== undefined) {
+                // Usar niveles completados calculados del progreso real
+                completedLevels = progressData.nivelesCompletados;
                 overallProgress = progressData.overallProgress;
             } else {
+                // Fallback: usar nivel actual - 1 como aproximación
+                completedLevels = Math.max(0, currentLevel - 1);
                 overallProgress = totalLevels > 0 ? Math.round((completedLevels / totalLevels) * 100) : 0;
             }
 
@@ -975,17 +1050,51 @@
             const currentLevelNumEl = document.getElementById('current-level-num');
             const overallProgressEl = document.getElementById('overall-progress');
 
-            if (totalLevelsEl) totalLevelsEl.textContent = totalLevels;
-            if (completedLevelsEl) completedLevelsEl.textContent = completedLevels;
-            if (currentLevelNumEl) currentLevelNumEl.textContent = currentLevel;
+            // Animar cambios en los valores
+            if (totalLevelsEl) {
+                const currentText = totalLevelsEl.textContent.trim();
+                const currentTotal = (currentText === '-' || currentText === '') ? 0 : (parseInt(currentText) || 0);
+                if (currentTotal !== totalLevels) {
+                    animateNumber(totalLevelsEl, totalLevels, 300);
+                } else if (currentText === '-' || currentText === '') {
+                    totalLevelsEl.textContent = totalLevels;
+                }
+            }
+
+            if (completedLevelsEl) {
+                const currentText = completedLevelsEl.textContent.trim();
+                const currentCompleted = (currentText === '-' || currentText === '') ? 0 : (parseInt(currentText) || 0);
+                if (currentCompleted !== completedLevels) {
+                    animateNumber(completedLevelsEl, completedLevels, 400);
+                } else if (currentText === '-' || currentText === '') {
+                    completedLevelsEl.textContent = completedLevels;
+                }
+            }
+
+            if (currentLevelNumEl) {
+                const currentText = currentLevelNumEl.textContent.trim();
+                const currentLevelNum = (currentText === '-' || currentText === '') ? 0 : (parseInt(currentText) || 0);
+                if (currentLevelNum !== currentLevel) {
+                    animateNumber(currentLevelNumEl, currentLevel, 400);
+                } else if (currentText === '-' || currentText === '') {
+                    currentLevelNumEl.textContent = currentLevel;
+                }
+            }
+
             if (overallProgressEl) {
-                overallProgressEl.textContent = `${overallProgress}%`;
-                // Animar el cambio
-                overallProgressEl.style.transform = 'scale(1.2)';
-                setTimeout(() => {
+                const currentText = overallProgressEl.textContent.trim();
+                const currentProgress = (currentText === '-' || currentText === '' || currentText === '0%') ? 0 : (parseInt(currentText) || 0);
+                if (currentProgress !== overallProgress) {
+                    animateNumber(overallProgressEl, `${overallProgress}%`, 500);
+                } else if (currentText === '-' || currentText === '' || currentText === '0%') {
+                    overallProgressEl.textContent = `${overallProgress}%`;
+                    // Efecto visual inicial
+                    overallProgressEl.style.transform = 'scale(1.1)';
                     overallProgressEl.style.transition = 'transform 0.3s ease';
-                    overallProgressEl.style.transform = 'scale(1)';
-                }, 10);
+                    setTimeout(() => {
+                        overallProgressEl.style.transform = 'scale(1)';
+                    }, 300);
+                }
             }
 
             // Actualizar información adicional si existe
@@ -1004,11 +1113,18 @@
                         <div class="flex items-center justify-center gap-4 flex-wrap">
                             <span class="flex items-center gap-1">
                                 <i class="fas fa-check-circle text-green-500"></i>
-                                ${progressData.problemasCompletados}/${progressData.totalProblemas} problemas
+                                <span class="font-semibold">${progressData.problemasCompletados}/${progressData.totalProblemas}</span>
+                                <span>problemas</span>
                             </span>
                             <span class="flex items-center gap-1">
                                 <i class="fas fa-book text-purple-500"></i>
-                                ${progressData.temasCompletados}/${progressData.totalTemas} temas
+                                <span class="font-semibold">${progressData.temasCompletados}/${progressData.totalTemas}</span>
+                                <span>temas</span>
+                            </span>
+                            <span class="flex items-center gap-1">
+                                <i class="fas fa-layer-group text-indigo-500"></i>
+                                <span class="font-semibold">${completedLevels}/${totalLevels}</span>
+                                <span>niveles</span>
                             </span>
                         </div>
                     `;

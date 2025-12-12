@@ -132,6 +132,11 @@ window.api = {
         });
     },
 
+    getUserStats: async (userId) => {
+        const result = await window.api._makeRequest(`/Users/${userId}/stats`);
+        return result;
+    },
+
 
     deleteUserAccount: async (data) => {
         // First verify password by attempting login
