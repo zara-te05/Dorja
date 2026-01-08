@@ -1,4 +1,5 @@
 // js/problems-renderer.js
+// Updated: 2024-12-19 - Certificate button functionality - VERSION 4
 // Load achievements.js functions
 if (typeof showAchievementPopup === 'undefined') {
     // If achievements.js is not loaded, define a placeholder
@@ -443,6 +444,7 @@ class ProblemsRenderer {
     }
 
     async renderProblemsList() {
+        console.log('🚀 INICIANDO renderProblemsList()');
         const problemsList = document.getElementById('problems-list');
         const problemsTitle = document.getElementById('problems-title');
         const problemsCount = document.getElementById('problems-count');
@@ -453,6 +455,7 @@ class ProblemsRenderer {
         }
         
         console.log('🔄 Renderizando lista de problemas. TemaId:', this.currentTemaId, 'Problemas:', this.problemas?.length || 0);
+        console.log('🔄 progresoPorTema completo:', this.progresoPorTema);
         
         if (!this.currentTemaId) {
             problemsList.innerHTML = '<div class="text-gray-500 dark:text-slate-400 text-sm p-4">Selecciona un tema para ver los problemas</div>';
@@ -472,9 +475,15 @@ class ProblemsRenderer {
         
         // Get completed problems for this topic - normalize temaId for consistent lookup
         const numTemaId = parseInt(this.currentTemaId);
-        const completados = this.progresoPorTema[numTemaId] || this.progresoPorTema[this.currentTemaId] || [];
-        console.log(`🎨 Renderizando lista - Tema ${numTemaId}, Completados:`, completados);
+        const completadosRaw = this.progresoPorTema[numTemaId] || this.progresoPorTema[this.currentTemaId] || [];
+        console.log(`🎨 Renderizando lista - Tema ${numTemaId}, Completados raw:`, completadosRaw);
         
+        // Normalize all completed IDs to numbers for consistent comparison
+        const completados = completadosRaw.map(id => parseInt(id)).filter(id => !isNaN(id));
+        console.log(`🎨 Completados normalizados:`, completados);
+        
+        // Count how many problems in the current list are actually completed
+        let problemasCompletadosEnLista = 0;
         let html = '';
         for (let i = 0; i < this.problemas.length; i++) {
             const problema = this.problemas[i];
@@ -482,13 +491,14 @@ class ProblemsRenderer {
             // Normalize problemaId to number for consistent comparison
             const numProblemaId = parseInt(problemaId);
             const titulo = problema.titulo || problema.Titulo || 'Sin título';
-            // Check both numeric and string versions for compatibility
-            const isCompleted = completados.includes(numProblemaId) || completados.includes(problemaId) || completados.includes(numProblemaId.toString()) || completados.includes(problemaId.toString());
+            // Check if this problem is completed
+            const isCompleted = completados.includes(numProblemaId);
             const isLocked = problema.locked || problema.Locked;
             const isActive = this.currentProblemaId === problemaId || this.currentProblemaId === numProblemaId;
             
             if (isCompleted) {
-                console.log(`  ✅ Problema ${numProblemaId} marcado como completado en render`);
+                problemasCompletadosEnLista++;
+                console.log(`  ✅ Problema ${numProblemaId} (${titulo}) marcado como completado`);
             }
             
             html += `
@@ -504,13 +514,16 @@ class ProblemsRenderer {
             `;
         }
         
+        // AGREGAR BOTÓN DE CERTIFICADO SIEMPRE - BLOQUEADO SI NO HAY 10 COMPLETADOS
+        const puedeDescargar = problemasCompletadosEnLista >= 10;
+        // NO agregar botón aquí - se usa el botón único del HTML principal
         problemsList.innerHTML = html;
         
         // Update problems count to show X/10 (for unlock requirement)
         // Use the helper method for consistency
         this.updateProblemsCounter();
         
-        // Add click handlers
+        // Add click handlers for problems
         problemsList.querySelectorAll('.problema-item:not(.locked)').forEach(el => {
             el.addEventListener('click', () => {
                 const problemaId = parseInt(el.dataset.problemaId);
@@ -520,7 +533,7 @@ class ProblemsRenderer {
         
         // Update problems count
         if (problemsCount) {
-            problemsCount.textContent = `${completados.length}/${this.problemas.length} completados`;
+            problemsCount.textContent = `${problemasCompletadosEnLista}/${this.problemas.length} completados`;
         }
         
         if (problemsTitle) {
@@ -831,13 +844,13 @@ class ProblemsRenderer {
         const completadosCount = completados.length;
         
         console.log(`📊 Actualizando contador UI: ${completadosCount}/10 problemas completados del tema ${numTemaId}`);
-        console.log(`📊 Problemas completados para tema ${numTemaId}:`, completados);
-        console.log(`📊 progresoPorTema completo:`, this.progresoPorTema);
         
         if (completadosCount >= 10) {
             problemsCount.textContent = `✓ ${completadosCount}/10 completados - ¡Tema completado!`;
             problemsCount.classList.add('text-green-600', 'font-bold', 'dark:text-green-400');
             problemsCount.classList.remove('text-gray-600', 'dark:text-gray-400');
+            
+            // NO agregar botón aquí - se usa el botón único del HTML principal
         } else {
             problemsCount.textContent = `${completadosCount}/10 completados`;
             problemsCount.classList.remove('text-green-600', 'font-bold', 'dark:text-green-400');
@@ -1204,6 +1217,93 @@ class ProblemsRenderer {
                 outputContent.classList.add('text-red-600');
                 outputContent.classList.remove('text-green-600');
             }
+        }
+    }
+
+    async generarCertificadoNivel(temaId) {
+        try {
+            console.log('🎓 Generando certificado para tema:', temaId);
+            
+            // Verificar que html2pdf esté disponible - esperar un poco si no está
+            if (typeof html2pdf === 'undefined') {
+                console.log('⏳ html2pdf no está disponible, esperando...');
+                // Esperar hasta 3 segundos para que se cargue
+                for (let i = 0; i < 30; i++) {
+                    await new Promise(resolve => setTimeout(resolve, 100));
+                    if (typeof html2pdf !== 'undefined') {
+                        console.log('✅ html2pdf cargado después de esperar');
+                        break;
+                    }
+                }
+                
+                if (typeof html2pdf === 'undefined') {
+                    alert('Error: La librería de PDF no está cargada. Por favor, recarga la página.');
+                    return;
+                }
+            }
+
+            // Verificar que la función de generación esté disponible
+            if (typeof window.generateLevelCertificatePDF === 'undefined') {
+                alert('Error: La función de generación de PDF no está disponible. Por favor, recarga la página.');
+                return;
+            }
+            
+            // Get user information
+            const user = await window.api.getUserById(this.userId);
+            if (!user) {
+                alert('No se pudo obtener la información del usuario. Por favor, intenta de nuevo.');
+                return;
+            }
+
+            // Get tema information
+            const tema = this.temas.find(t => {
+                const tId = t.id || t.IdTemas || t.Id || t.idTemas;
+                return parseInt(tId) === parseInt(temaId);
+            });
+
+            if (!tema) {
+                alert('No se pudo obtener la información del nivel. Por favor, intenta de nuevo.');
+                return;
+            }
+
+            // Get completed problems count
+            const numTemaId = parseInt(temaId);
+            const completados = this.progresoPorTema[numTemaId] || this.progresoPorTema[temaId] || [];
+            const problemasCompletados = completados.length;
+
+            // Build full name
+            const nombre = user.nombre || user.Nombre || '';
+            const apellidoPaterno = user.apellidoPaterno || user.ApellidoPaterno || '';
+            const apellidoMaterno = user.apellidoMaterno || user.ApellidoMaterno || '';
+            const nombreCompleto = `${nombre} ${apellidoPaterno} ${apellidoMaterno}`.trim() || user.username || 'Usuario';
+
+            // Get tema name
+            const temaNombre = tema.titulo || tema.Titulo || 'Nivel';
+            
+            // Get nivel ID
+            const nivelId = this.currentNivelId || 1;
+
+            // Get user email
+            const email = user.email || user.Email || '';
+
+            // Preparar datos para el certificado
+            const certificateData = {
+                nombreCompleto: nombreCompleto,
+                temaNombre: temaNombre,
+                nivelId: nivelId,
+                problemasCompletados: problemasCompletados,
+                email: email,
+                nombre: nombre,
+                apellidoPaterno: apellidoPaterno,
+                apellidoMaterno: apellidoMaterno
+            };
+
+            // Generar el PDF usando la función de pdf-generator.js
+            await window.generateLevelCertificatePDF(certificateData);
+
+        } catch (error) {
+            console.error('❌ Error generando certificado:', error);
+            alert('Error al generar el certificado. Por favor, intenta de nuevo.');
         }
     }
 }

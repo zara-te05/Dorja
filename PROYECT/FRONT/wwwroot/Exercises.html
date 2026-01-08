@@ -249,6 +249,15 @@
       <div class="p-2" id="problems-list">
         <div class="text-gray-500 dark:text-slate-400 text-sm p-4">Selecciona un tema para ver los problemas</div>
       </div>
+      <!-- BOTÓN DE CERTIFICADO - ÚNICO BOTÓN -->
+      <div id="certificate-panel-container" class="mt-4 p-4 bg-gray-50 dark:bg-slate-700 border-2 border-gray-300 dark:border-slate-600 rounded-lg text-center">
+        <h4 class="font-bold text-gray-800 dark:text-white mb-2" id="certificate-title">Nivel en Progreso</h4>
+        <p class="text-sm text-gray-600 dark:text-slate-400 mb-3" id="certificate-message">Completa 10 problemas para desbloquear el certificado</p>
+        <button id="certificate-btn-main" disabled 
+                class="w-full px-4 py-3 bg-gray-400 dark:bg-slate-600 text-white font-semibold rounded-lg cursor-not-allowed opacity-60 transition-all duration-300 disabled:opacity-60 disabled:cursor-not-allowed">
+          📄 Descargar Certificado PDF
+        </button>
+      </div>
     </div>
 
     <!-- Área de Contenido Principal -->
@@ -331,9 +340,10 @@
   <script src="https://unpkg.com/monaco-editor@latest/min/vs/loader.js"></script>
   <script src="./js/theme-toggle.js"></script>
   <script src="./js/monaco-init.js"></script>
-  <script src="./js/problems-renderer.js"></script>
+  <!-- Cargar html2pdf.js ANTES de pdf-generator.js -->
   <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
   <script src="./js/pdf-generator.js"></script>
+  <script src="./js/problems-renderer.js?v=6"></script>
   <script>
     document.addEventListener('DOMContentLoaded', async function () {
       const userId = sessionStorage.getItem('userId');
@@ -395,7 +405,67 @@
           window.problemsRenderer.ejecutarCodigo();
         });
       }
+
+      // Script único para actualizar el botón de certificado
+      function actualizarBotonCertificado() {
+        try {
+          const panel = document.getElementById('certificate-panel-container');
+          const btn = document.getElementById('certificate-btn-main');
+          const msg = document.getElementById('certificate-message');
+          const title = document.getElementById('certificate-title');
+          const pc = document.getElementById('problems-count');
+          
+          if (!panel || !btn || !msg || !title || !pc) return;
+          
+          const txt = pc.textContent || '';
+          const m = txt.match(/(\d+)\/(\d+)/);
+          
+          if (m) {
+            const completados = parseInt(m[1]);
+            const tid = (window.problemsRenderer && window.problemsRenderer.currentTemaId) || 1;
+            
+            if (completados >= 10) {
+              panel.className = 'mt-4 p-4 bg-gradient-to-r from-green-50 to-emerald-50 dark:from-green-900/20 dark:to-emerald-900/20 border-2 border-green-500 dark:border-green-400 rounded-lg text-center';
+              title.textContent = '¡Nivel Completado!';
+              title.className = 'font-bold text-green-800 dark:text-green-300 mb-2';
+              msg.textContent = `Has completado ${completados} problemas. ¡Felicidades!`;
+              msg.className = 'text-sm text-green-700 dark:text-green-400 mb-3';
+              btn.disabled = false;
+              btn.className = 'w-full px-4 py-3 bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-700 hover:to-purple-700 text-white font-semibold rounded-lg shadow-lg transition-all duration-300 transform hover:scale-105';
+              btn.onclick = function() {
+                if (window.problemsRenderer && window.problemsRenderer.generarCertificadoNivel) {
+                  window.problemsRenderer.generarCertificadoNivel(tid);
+                }
+              };
+            } else {
+              panel.className = 'mt-4 p-4 bg-gray-50 dark:bg-slate-700 border-2 border-gray-300 dark:border-slate-600 rounded-lg text-center';
+              title.textContent = 'Nivel en Progreso';
+              title.className = 'font-bold text-gray-800 dark:text-white mb-2';
+              msg.textContent = `Completa ${10 - completados} problemas más para desbloquear el certificado`;
+              msg.className = 'text-sm text-gray-600 dark:text-slate-400 mb-3';
+              btn.disabled = true;
+              btn.className = 'w-full px-4 py-3 bg-gray-400 dark:bg-slate-600 text-white font-semibold rounded-lg cursor-not-allowed opacity-60 transition-all duration-300 disabled:opacity-60 disabled:cursor-not-allowed';
+              btn.onclick = null;
+            }
+          }
+        } catch (error) {
+          console.error('Error actualizando botón:', error);
+        }
+      }
+      
+      // Observar cambios en el contador
+      const problemsCount = document.getElementById('problems-count');
+      if (problemsCount) {
+        const observer = new MutationObserver(actualizarBotonCertificado);
+        observer.observe(problemsCount, { 
+          childList: true, 
+          characterData: true, 
+          subtree: true 
+        });
+        setInterval(actualizarBotonCertificado, 1000);
+      }
     });
+
   </script>
 </body>
 
