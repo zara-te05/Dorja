@@ -126,8 +126,8 @@ function renderAchievements(achievements, container) {
                 <div class="absolute top-0 right-0 w-20 h-20 bg-indigo-200/20 dark:bg-indigo-800/10 rounded-full -mr-10 -mt-10 blur-2xl group-hover:bg-indigo-300/30 transition-colors"></div>
                 <div class="relative z-10">
                     <div class="mb-4 sm:mb-5 flex items-center justify-between">
-                        <div class="w-11 h-11 rounded-lg bg-gradient-to-br from-indigo-500 to-purple-600 shadow-md flex items-center justify-center group-hover:scale-110 transition-transform duration-300">
-                            <i class="fas ${achievement.icono} text-white text-sm"></i>
+                        <div>
+                            <i class="fas ${achievement.icono} text-white text-2xl"></i>
                         </div>
                         <div class="w-1.5 h-1.5 rounded-full bg-indigo-400 opacity-80"></div>
                     </div>

@@ -526,13 +526,12 @@
         </div>
 
         <!-- STATS PANEL -->
-        <div id="stats-panel" class="mb-12 stats-panel rounded-2xl p-6 sm:p-8 shadow-lg">
+        <div id="stats-panel" class="mb-6 stats-panel rounded-2xl p-6 sm:p-8 shadow-lg">
             <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 sm:gap-6">
                 <div
                     class="bg-white/50 dark:bg-slate-800/50 rounded-xl p-4 sm:p-5 border border-indigo-200 dark:border-indigo-800 hover-lift">
                     <div class="flex items-center justify-between mb-2">
-                        <div
-                            class="w-12 h-12 rounded-lg bg-gradient-to-br from-indigo-500 to-purple-600 flex items-center justify-center">
+                        <div>
                             <i class="fas fa-layer-group text-white text-lg"></i>
                         </div>
                         <span id="total-levels"
@@ -591,12 +590,11 @@
         </div>
 
         <!-- SEARCH AND FILTERS -->
-        <div class="mb-12 space-y-4">
+        <div class="mb-6 space-y-4">
             <div class="flex flex-col sm:flex-row gap-4 items-center justify-between">
                 <!-- Search Bar -->
                 <div class="relative flex-1 w-full sm:max-w-md">
                     <div class="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
-                        <i class="fas fa-search text-gray-400"></i>
                     </div>
                     <input type="text" id="search-input" placeholder="Buscar niveles o temas..."
                         class="search-input w-full pl-11 pr-4 py-3 rounded-xl border-2 border-gray-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-gray-900 dark:text-white focus:border-indigo-500 focus:ring-2 focus:ring-indigo-200 dark:focus:ring-indigo-800 outline-none transition-all" />
@@ -616,17 +614,17 @@
                     <button
                         class="filter-btn px-4 py-2 rounded-lg bg-white dark:bg-slate-800 text-gray-700 dark:text-gray-300 border-2 border-gray-200 dark:border-slate-700 font-medium text-sm hover:bg-gray-50 dark:hover:bg-slate-700 transition-all"
                         data-filter="current">
-                        <i class="fas fa-rocket mr-2"></i>En Curso
+                        En Curso
                     </button>
                     <button
                         class="filter-btn px-4 py-2 rounded-lg bg-white dark:bg-slate-800 text-gray-700 dark:text-gray-300 border-2 border-gray-200 dark:border-slate-700 font-medium text-sm hover:bg-gray-50 dark:hover:bg-slate-700 transition-all"
                         data-filter="completed">
-                        <i class="fas fa-check-circle mr-2"></i>Completados
+                        Completados
                     </button>
                     <button
                         class="filter-btn px-4 py-2 rounded-lg bg-white dark:bg-slate-800 text-gray-700 dark:text-gray-300 border-2 border-gray-200 dark:border-slate-700 font-medium text-sm hover:bg-gray-50 dark:hover:bg-slate-700 transition-all"
                         data-filter="locked">
-                        <i class="fas fa-lock mr-2"></i>Bloqueados
+                        Bloqueados
                     </button>
                 </div>
             </div>
@@ -3045,11 +3043,6 @@ WHERE id = 1`,
 
                 html += `
                     <div class="relative reveal">
-                        <!-- Nodo del roadmap -->
-                        <div class="${nodeClasses}">
-                            ${isLocked ? '<i class="fas fa-lock"></i>' : (isCurrent ? '<i class="fas fa-rocket"></i>' : '<i class="fas fa-check-circle"></i>')}
-                        </div>
-
                         <!-- Tarjeta del nivel -->
                         <div class="${cardClasses}">
                             ${glowEffect}
@@ -3106,14 +3099,6 @@ WHERE id = 1`,
                                         <div class="absolute top-full left-1/2 transform -translate-x-1/2 border-4 border-transparent border-t-gray-900 dark:border-t-slate-800"></div>
                                     </div>
                                 </div>
-                                <div class="group relative flex items-center gap-2 px-4 sm:px-5 py-2 sm:py-2.5 bg-gradient-to-r from-purple-50 to-pink-50 dark:from-purple-900/20 dark:to-pink-900/20 rounded-xl border border-purple-200 dark:border-purple-800 transition-all hover:shadow-lg hover:scale-105 cursor-help">
-                                    <i class="fas fa-book text-purple-600 dark:text-purple-400 text-sm"></i>
-                                    <span class="text-purple-700 dark:text-purple-300 font-semibold text-xs sm:text-sm">${nivelTemas.length} ${nivelTemas.length === 1 ? 'Tema' : 'Temas'}</span>
-                                    <div class="absolute bottom-full left-1/2 transform -translate-x-1/2 mb-2 px-3 py-2 bg-gray-900 dark:bg-slate-800 text-white text-xs rounded-lg opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none whitespace-nowrap z-50">
-                                        Temas en este nivel
-                                        <div class="absolute top-full left-1/2 transform -translate-x-1/2 border-4 border-transparent border-t-gray-900 dark:border-t-slate-800"></div>
-                                    </div>
-                                </div>
                                 <div class="group relative flex items-center gap-2 px-4 sm:px-5 py-2 sm:py-2.5 ${isCompleted ? 'bg-gradient-to-r from-green-50 to-emerald-50 dark:from-green-900/20 dark:to-emerald-900/20 border-green-200 dark:border-green-800' : isCurrent ? 'bg-gradient-to-r from-indigo-50 to-purple-50 dark:from-indigo-900/20 dark:to-purple-900/20 border-indigo-200 dark:border-indigo-800' : 'bg-gray-100 dark:bg-slate-700 border-gray-200 dark:border-slate-600'} rounded-xl border transition-all hover:shadow-lg hover:scale-105 cursor-help">
                                     ${statusIcon}
                                     <span class="text-xs sm:text-sm font-semibold ${isCompleted ? 'text-green-700 dark:text-green-300' : isCurrent ? 'text-indigo-700 dark:text-indigo-300' : 'text-gray-700 dark:text-gray-300'}">${statusText}</span>
@@ -3159,17 +3144,6 @@ WHERE id = 1`,
                                 </div>
                             </div>
                             ` : ''}
-                            
-                            <!-- Roadmap de Temas -->
-                            <div class="mt-8 sm:mt-10 md:mt-12">
-                                <h4 class="text-base sm:text-lg md:text-xl font-semibold text-gray-900 dark:text-white mb-6 sm:mb-8 md:mb-10 flex items-center gap-2 justify-center">
-                                    <i class="fas fa-route text-indigo-600 dark:text-indigo-400"></i>
-                                    <span>Ruta de Aprendizaje</span>
-                                </h4>
-                                <div class="flex justify-center">
-                                    ${temasMapHtml}
-                                </div>
-                            </div>
                         </div>
                     </div>
                 `;

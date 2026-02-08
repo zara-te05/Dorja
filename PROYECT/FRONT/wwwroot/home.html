@@ -140,7 +140,7 @@
         <!-- HERO -->
         <section class="grid grid-cols-1 lg:grid-cols-3 gap-8 lg:gap-10 items-start mb-20">
             <div
-                class="lg:col-span-2 bg-gradient-to-r from-indigo-50 to-white dark:from-slate-800/40 dark:to-slate-900/40 rounded-xl p-8 lg:p-10 shadow-md border border-gray-100 dark:border-slate-700">
+                class="mb-6 lg:col-span-2 bg-gradient-to-r from-indigo-50 to-white dark:from-slate-800/40 dark:to-slate-900/40 rounded-xl p-8 lg:p-10 shadow-md border border-gray-100 dark:border-slate-700">
                 <div class="flex flex-col sm:flex-row items-start sm:items-center gap-6 sm:gap-8 mb-10">
                     <div
                         class="w-32 h-32 sm:w-36 sm:h-36 rounded-2xl bg-indigo-500 flex items-center justify-center shadow-lg flex-shrink-0">
@@ -280,13 +280,13 @@
             <!-- RIGHT COLUMN: CARDS -->
             <aside class="space-y-6 lg:space-y-8">
                 <div
-                    class="bg-white dark:bg-slate-800 rounded-xl p-6 lg:p-7 shadow-md border border-gray-100 dark:border-slate-700">
+                    class="mb-6 bg-white dark:bg-slate-800 rounded-xl p-6 lg:p-7 shadow-md border border-gray-100 dark:border-slate-700">
                     <h3 class="text-lg font-bold mb-6">Retos de Hoy</h3>
                     <ul class="space-y-5 text-sm">
                         <li class="flex justify-between items-center">
                             <div>
                                 <div class="font-medium">Completa 5 ejercicios</div>
-                                <div class="text-xs text-gray-500">3/5 · +50 XP</div>
+                                <div class="text-xs text-gray-500"></div>
                             </div>
                             <div class="w-20 h-3 bg-gray-200 rounded-full overflow-hidden ml-4">
                                 <div class="h-3 bg-indigo-500" style="width:60%"></div>
@@ -296,30 +296,22 @@
                         <li class="flex justify-between items-center">
                             <div>
                                 <div class="font-medium">Practica 20 minutos</div>
-                                <div class="text-xs text-gray-500">15/20 min · +30 XP</div>
+                                <div class="text-xs text-gray-500"></div>
                             </div>
                             <div class="w-20 h-3 bg-gray-200 rounded-full overflow-hidden ml-4">
                                 <div class="h-3 bg-green-500" style="width:75%"></div>
                             </div>
                         </li>
 
-                        <li class="flex justify-between items-center">
-                            <div>
-                                <div class="font-medium">Reto difícil</div>
-                                <div class="text-xs text-gray-500">0/1 · +100 XP</div>
-                            </div>
-                            <div class="w-20 h-3 bg-gray-200 rounded-full overflow-hidden ml-4">
-                                <div class="h-3 bg-amber-500" style="width:0%"></div>
-                            </div>
-                        </li>
+                        
                     </ul>
                 </div>
 
                 <div class="bg-gradient-to-br from-indigo-500 to-purple-600 rounded-xl p-6 lg:p-7 text-white shadow-lg">
                     <h4 class="font-bold mb-3 text-lg">Próximo Nivel</h4>
-                    <p class="text-sm opacity-90 mb-5">Nivel 9 · Patrones de Diseño</p>
+                    <p class="text-sm opacity-90 mb-5">Nivel 2 · Patrones de Diseño</p>
                     <div class="mt-6">
-                        <div class="text-xs flex justify-between"><span>65% completado</span><span>350 XP</span></div>
+                        <div class="text-xs flex justify-between"><span>0% completado</span><span>350 XP</span></div>
                         <div class="w-full bg-white/20 rounded-full h-2 mt-2">
                             <div class="bg-white h-2 rounded-full" style="width:65%"></div>
                         </div>
@@ -329,7 +321,7 @@
         </section>
 
         <!-- ACHIEVEMENTS -->
-        <section class="mt-20 mb-20">
+        <section class="mt-10 mb-10">
             <div
                 class="bg-gradient-to-r from-indigo-50 to-white dark:from-slate-800/40 dark:to-slate-900/40 rounded-xl p-8 lg:p-10 shadow-md border border-gray-100 dark:border-slate-700">
                 <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-10">
@@ -416,7 +408,11 @@
                 'DRY: "Don\'t Repeat Yourself" — crea funciones reutilizables.',
                 'Los comentarios claros son casi tan importantes como el código.',
                 'Dividir problemas grandes en tareas pequeñas acelera el aprendizaje.',
-                'Escribe pruebas pequeñas para asegurar comportamientos críticos.'
+                'Escribe pruebas pequeñas para asegurar comportamientos críticos.',
+                'Los errores son oportunidades de aprendizaje: léelos con atención antes de buscar en Google.',
+                'Console.log es tu amigo, pero aprende a usar el debugger del navegador.',
+                'Nombra variables y funciones de forma descriptiva: prefiere "calculateTotalPrice" sobre "calc".',
+                "Las IA's son tus amigas, pero tambien pueden ser tus mayores enemigas."
             ];
             const random = facts[Math.floor(Math.random() * facts.length)];
             const rk = document.getElementById('random-knowledge');
@@ -475,7 +471,7 @@
                     type: 'achievement',
                     title: '¡Logro desbloqueado!',
                     message: 'Has completado 100 ejercicios',
-                    time: 'Hace 2 horas',
+                    time: 'Justo Ahora',
                     read: false,
                     icon: 'fa-trophy',
                     color: 'text-yellow-500'
@@ -484,8 +480,8 @@
                     id: 2,
                     type: 'level',
                     title: 'Nuevo nivel disponible',
-                    message: 'Puedes acceder al Nivel 9',
-                    time: 'Hace 5 horas',
+                    message: 'Puedes acceder al Nivel 1',
+                    time: 'Justo ahora',
                     read: false,
                     icon: 'fa-arrow-up',
                     color: 'text-indigo-500'
@@ -495,7 +491,7 @@
                     type: 'reminder',
                     title: 'Recordatorio',
                     message: 'No olvides practicar hoy para mantener tu racha',
-                    time: 'Hace 1 día',
+                    time: 'Siempre',
                     read: false,
                     icon: 'fa-fire',
                     color: 'text-orange-500'
