@@ -2,57 +2,89 @@ const { app, BrowserWindow } = require('electron');
 const path = require('path');
 const { spawn } = require('child_process');
 const fs = require('fs');
+const { autoUpdater } = require('electron-updater');
+const log = require('electron-log');
+
+// Configure logging
+log.transports.file.level = 'info';
+autoUpdater.logger = log;
+autoUpdater.autoDownload = false; // Optional: set to true if you want auto download
+
 
 let mainWindow;
 let backendProcess;
 
 // Start the backend server
 const startBackend = () => {
-  const backendDir = path.join(__dirname, 'PROYECT', 'BACK');
-  
-  console.log('Starting backend server...');
-  console.log('Backend directory:', backendDir);
-  
-  // Check if directory exists
-  if (!fs.existsSync(backendDir)) {
-    console.error('ERROR: Backend directory not found:', backendDir);
-    return;
-  }
+  let backendProcess;
 
-  // Try running with dotnet
-  backendProcess = spawn('dotnet', ['run', '--urls', 'http://localhost:5222'], {
-    cwd: backendDir,
-    shell: true,
-    stdio: ['ignore', 'pipe', 'pipe'] // Capture output
-  });
+  if (app.isPackaged) {
+    // Production: Run the executable from resources
+    // The backend is copied to 'resources/backend'
+    const backendPath = path.join(process.resourcesPath, 'backend', 'BACK.exe');
+    log.info('Starting backend from:', backendPath);
+
+    if (!fs.existsSync(backendPath)) {
+      log.error('Backend executable not found at:', backendPath);
+      return null;
+    }
+
+    // Spawn the backend executable
+    backendProcess = spawn(backendPath, ['--urls', 'http://localhost:5222'], {
+      cwd: path.dirname(backendPath),
+      stdio: ['ignore', 'pipe', 'pipe']
+    });
+  } else {
+    // Development: Run with dotnet run
+    const backendDir = path.join(__dirname, 'PROYECT', 'BACK');
+    log.info('Starting backend in development mode...');
+    log.info('Backend directory:', backendDir);
+
+    if (!fs.existsSync(backendDir)) {
+      console.error('ERROR: Backend directory not found:', backendDir);
+      return null;
+    }
+
+    // Try running with dotnet
+    backendProcess = spawn('dotnet', ['run', '--urls', 'http://localhost:5222'], {
+      cwd: backendDir,
+      shell: true,
+      stdio: ['ignore', 'pipe', 'pipe'] // Capture output
+    });
+  }
 
   let backendReady = false;
 
-  backendProcess.stdout.on('data', (data) => {
-    const output = data.toString();
-    console.log(`Backend: ${output}`);
-    
-    // Check if backend is ready
-    if (output.includes('Now listening on:') || output.includes('Application started')) {
-      backendReady = true;
-      console.log('✅ Backend server is ready!');
-    }
-  });
+  if (backendProcess && backendProcess.stdout) {
+    backendProcess.stdout.on('data', (data) => {
+      const output = data.toString();
+      log.info(`Backend: ${output}`);
+      if (!app.isPackaged) console.log(`Backend: ${output}`);
 
-  backendProcess.stderr.on('data', (data) => {
-    const error = data.toString();
-    console.error(`Backend Error: ${error}`);
-  });
+      // Check if backend is ready
+      if (output.includes('Now listening on:') || output.includes('Application started')) {
+        backendReady = true;
+        log.info('✅ Backend server is ready!');
+      }
+    });
 
-  backendProcess.on('close', (code) => {
-    console.log(`Backend process exited with code ${code}`);
-    backendReady = false;
-  });
+    backendProcess.stderr.on('data', (data) => {
+      const error = data.toString();
+      log.error(`Backend Error: ${error}`);
+      if (!app.isPackaged) console.error(`Backend Error: ${error}`);
+    });
 
-  backendProcess.on('error', (err) => {
-    console.error('Failed to start backend:', err);
-    console.error('Make sure .NET SDK is installed and available in PATH');
-  });
+    backendProcess.on('close', (code) => {
+      log.info(`Backend process exited with code ${code}`);
+      if (!app.isPackaged) console.log(`Backend process exited with code ${code}`);
+      backendReady = false;
+    });
+
+    backendProcess.on('error', (err) => {
+      log.error('Failed to start backend:', err);
+      if (!app.isPackaged) console.error('Failed to start backend:', err);
+    });
+  }
 
   return backendProcess;
 };
@@ -97,11 +129,11 @@ function createWindow() {
         mainWindow.show();
       }
     });
-    
+
     req.on('error', () => {
       // Backend not ready yet, keep waiting
     });
-    
+
     req.setTimeout(1000, () => {
       req.destroy();
     });
@@ -124,6 +156,7 @@ function createWindow() {
 }
 
 app.whenReady().then(() => {
+  setupAutoUpdater();
   createWindow();
 
   app.on('activate', () => {
@@ -139,6 +172,43 @@ app.on('window-all-closed', () => {
     app.quit();
   }
 });
+
+function setupAutoUpdater() {
+  log.info('App starting...');
+
+  autoUpdater.on('checking-for-update', () => {
+    log.info('Checking for update...');
+  });
+
+  autoUpdater.on('update-available', (info) => {
+    log.info('Update available.');
+    // Optional: Ask user if they want to download
+    autoUpdater.downloadUpdate();
+  });
+
+  autoUpdater.on('update-not-available', (info) => {
+    log.info('Update not available.');
+  });
+
+  autoUpdater.on('error', (err) => {
+    log.info('Error in auto-updater. ' + err);
+  });
+
+  autoUpdater.on('download-progress', (progressObj) => {
+    let log_message = "Download speed: " + progressObj.bytesPerSecond;
+    log_message = log_message + ' - Downloaded ' + progressObj.percent + '%';
+    log_message = log_message + ' (' + progressObj.transferred + "/" + progressObj.total + ')';
+    log.info(log_message);
+  });
+
+  autoUpdater.on('update-downloaded', (info) => {
+    log.info('Update downloaded');
+    // Optional: Ask user to restart
+    autoUpdater.quitAndInstall();
+  });
+
+  autoUpdater.checkForUpdatesAndNotify();
+}
 
 app.on('before-quit', () => {
   stopBackend();
